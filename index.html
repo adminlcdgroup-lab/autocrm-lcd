@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoCRM — LCD Group</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background:#020617; }
+  .tab-btn.active { color:#38bdf8; border-bottom:2px solid #38bdf8; }
+  input, select, textarea { background:#1e293b; border:1px solid #334155; color:#e2e8f0; border-radius:6px; padding:7px 10px; font-size:13px; outline:none; width:100%; }
+  input:focus, select:focus, textarea:focus { border-color:#3b82f6; }
+  input[readonly] { background:#0f172a; color:#64748b; }
+  input[type="file"] { background:#1e293b; border:1px dashed #334155; color:#94a3b8; padding:10px; cursor:pointer; }
+  label { font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; }
+  .badge { border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700; display:inline-block; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th { text-align:left; padding:6px 10px; color:#64748b; font-weight:600; border-bottom:1px solid #1e293b; white-space:nowrap; }
+  td { padding:8px 10px; border-bottom:1px solid #0f172a; }
+  tr.clickable { cursor:pointer; }
+  tr.clickable:hover td { background:#0f172a; }
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px; }
+  .modal-box { background:#0f172a; border:1px solid #334155; border-radius:12px; width:100%; max-width:860px; max-height:90vh; overflow-y:auto; padding:24px; }
+  .section-title { font-size:12px; color:#38bdf8; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #1e293b; }
+  .spinner { width:40px; height:40px; border:3px solid #1e293b; border-top:3px solid #38bdf8; border-radius:50%; animation: spin 0.8s linear infinite; margin:0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position:fixed; bottom:20px; right:20px; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px 18px; z-index:2000; font-size:13px; transition:all 0.3s; }
+  .toast.success { border-color:#22c55e; color:#4ade80; }
+  .toast.error { border-color:#ef4444; color:#ef4444; }
+</style>
+</head>
+<body class="text-slate-200">
+
+<!-- LOGIN -->
+<div id="loginScreen" class="fixed inset-0 bg-slate-950 z-[3000] flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full shadow-2xl">
+    <div class="text-center mb-6">
+      <div class="inline-block bg-white rounded-2xl p-4 mb-4 shadow-lg">
+        <img src="https://drive.google.com/thumbnail?id=19FylJ0QVp0DwCqmMVgrjKcBP-VkRE0Jc&sz=w400" alt="LCD Group" class="h-20 mx-auto" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <div style="display:none" class="flex items-center justify-center gap-1">
+          <span class="text-4xl font-black text-slate-900 tracking-tight">LCD</span>
+          <span class="text-2xl text-green-500 font-bold">↗</span>
+        </div>
+      </div>
+      <h1 class="text-lg font-extrabold text-sky-400 mt-2">Acceso al Sistema</h1>
+      <p class="text-slate-500 text-xs mt-1">División de Evaluaciones Técnicas</p>
+    </div>
+    <form onsubmit="event.preventDefault();intentarLogin()">
+      <label class="block mb-2">Contraseña / PIN</label>
+      <input id="pinInput" type="password" autocomplete="off" autofocus placeholder="••••" class="text-center text-lg tracking-widest mb-2">
+      <div id="loginError" class="hidden text-red-400 text-xs text-center mb-2"></div>
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg py-3 text-sm font-bold mt-3">Ingresar</button>
+    </form>
+    <div class="text-center text-slate-600 text-xs mt-6">© LCD Group S.A.C. · v3.1</div>
+  </div>
+</div>
+
+<!-- LOADER -->
+<div id="loader" class="fixed inset-0 bg-slate-950 z-[2000] flex flex-col items-center justify-center">
+  <div class="spinner mb-4"></div>
+  <div class="text-sky-400 font-semibold">Sincronizando datos...</div>
+  <div class="text-slate-500 text-xs mt-2">Cargando inventario y clientes</div>
+</div>
+
+<!-- APP -->
+<div id="appWrapper" class="hidden">
+
+<div class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-5 flex items-center gap-1 flex-wrap">
+    <div class="flex items-center gap-2 mr-4 py-3 whitespace-nowrap">
+      <div class="bg-white rounded-lg px-2 py-1">
+        <img src="https://drive.google.com/thumbnail?id=19FylJ0QVp0DwCqmMVgrjKcBP-VkRE0Jc&sz=w200" alt="LCD" class="h-7" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none" class="items-center gap-0.5">
+          <span class="text-base font-black text-slate-900">LCD</span>
+          <span class="text-sm text-green-500 font-bold">↗</span>
+        </div>
+      </div>
+      <span class="font-extrabold text-sky-400 text-sm">AutoCRM</span>
+    </div>
+    <button class="tab-btn active px-3 py-4 text-sm font-semibold text-slate-500" data-tab="dashboard"   data-role="admin">📊 Dashboard</button>
+    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500"        data-tab="inventario"  data-role="admin">🚗 Inventario</button>
+    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500"        data-tab="crm"         data-role="admin">👥 CRM</button>
+    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500"        data-tab="matches"     data-role="admin">🎯 Matches</button>
+    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500"        data-tab="tasadora"    data-role="admin">⚖️ Tasación</button>
+    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500"        data-tab="operaciones" data-role="admin">📑 Operaciones</button>
+    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500"        data-tab="inspeccion"  data-role="all">📋 Inspección</button>
+    <div class="ml-auto flex items-center gap-2">
+      <span id="userBadge" class="hidden text-xs px-3 py-1 rounded-full"></span>
+      <button onclick="sincronizar()" id="btnSync" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1" title="Recargar">🔄 Sincronizar</button>
+      <div id="alertBadge" class="hidden bg-red-500/20 border border-red-500 rounded-full px-3 py-1 text-red-500 text-xs font-bold cursor-pointer"></div>
+      <button onclick="cerrarSesion()" class="text-slate-400 hover:text-red-400 text-xs font-semibold px-3 py-1 border border-slate-700 rounded">🚪 Salir</button>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-7xl mx-auto p-5">
+  <div id="content"></div>
+</div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// ⚠️  IMPORTANTE: PEGA AQUÍ TU URL DE APPS SCRIPT
+//     Implementar → Administrar implementaciones → copiar URL
+// ═══════════════════════════════════════════════════════════
+const API_URL = 'PEGA_AQUI_TU_URL_DE_APPS_SCRIPT';
+
+// ── CONSTANTES ──
+const MARCAS        = ["Toyota","Hyundai","Kia","Nissan","Chevrolet","Ford","Honda","Mazda","Mitsubishi","Suzuki","Changan","Chery","Geely","Volkswagen","Otros"];
+const COLORES       = ["Blanco","Negro","Plata","Gris","Rojo","Azul","Beige","Verde","Otro"];
+const TRANSMISIONES = ["Manual","Automático","CVT","Doble embrague","MT","AT"];
+const TRACCIONES    = ["4x2","4x4","AWD","FWD","RWD"];
+const ESTADOS       = ["Disponible","Publicado","Reservado","Vendido"];
+const CARROCERIAS   = ["Sedán","SUV","Hatchback","Pickup","Van","Coupé","Indiferente"];
+const ORIGENES      = ["Facebook","Instagram","TikTok","WhatsApp","Referido","Web","OLX","Otros"];
+const PAGOS         = ["Contado","Financiado","Por definir"];
+const STATUS_CRM    = ["Caliente","Tibio","Frío","Descartado"];
+const STATUS_COLORS = { Caliente:"#ef4444", Tibio:"#f59e0b", "Frío":"#3b82f6", Descartado:"#6b7280" };
+const STATUS_EMOJI  = { Caliente:"🔴", Tibio:"🟡", "Frío":"❄️", Descartado:"⚫" };
+const CARROCERIA_MAP = {
+  "Rush":"SUV","Kicks":"SUV","Tracker":"SUV","Tucson":"SUV","Venue":"SUV","Xtrail":"SUV","Qashqai":"SUV",
+  "CX3":"SUV","Outlander":"SUV","Captiva":"SUV","Territory":"SUV","CS35":"SUV","GX3 Pro":"SUV",
+  "Sentra":"Sedán","Tiida":"Sedán","Sonic":"Sedán","Gol":"Sedán","Joy":"Sedán",
+  "I20":"Hatchback","Agya":"Hatchback","Groove":"Hatchback","Beat":"Hatchback",
+  "Colorado":"Pickup"
+};
+
+// ── ESTADO ──
+let vehs = [], clis = [], operaciones = [];
+let currentTab       = "dashboard";
+let filterEstado     = "Todos";
+let filterStatus     = "Todos";
+let searchVeh        = "";
+let searchCli        = "";
+let lastMatchVeh     = null;
+let lastMatches      = [];
+let cargando         = true;
+let ultimoIdOperacion = null;   // último OP generado en Tasación
+let opExpandidas      = {};     // cards expandidas en Operaciones
+let filtroOperaciones = "Todas";
+let operacionesCargando = false;
+
+// ── API REST (reemplaza google.script.run) ──
+function apiFetch(action, payload) {
+  return fetch(API_URL, {
+    method : 'POST',
+    headers: { 'Content-Type': 'text/plain' },   // evita preflight CORS
+    body   : JSON.stringify({ action, payload })
+  }).then(r => r.json());
+}
+
+function apiGet(action) {
+  return fetch(API_URL + '?action=' + action).then(r => r.json());
+}
+
+function sincronizar() {
+  cargando = true;
+  showLoader(true);
+  apiGet('datos')
+    .then(procesarDatos)
+    .catch(errorCarga);
+}
+
+function procesarDatos(data) {
+  try {
+    if (!data) data = {};
+    if (Array.isArray(data)) {
+      vehs = data.map(normalizarVehiculo);
+      clis = [];
+    } else {
+      vehs = (data.vehiculos || data.inventario || []).map(normalizarVehiculo);
+      clis = (data.clientes  || data.crm        || []).map(normalizarCliente);
+    }
+    cargando = false;
+    showLoader(false);
+    render();
+    toast(`✅ ${vehs.length} vehículos · ${clis.length} clientes`, "success");
+  } catch(err) {
+    errorCarga(err);
+  }
+}
+
+function errorCarga(err) {
+  cargando = false;
+  showLoader(false);
+  vehs = []; clis = [];
+  render();
+  toast("⚠️ " + (err.message || "Error al conectar con el servidor"), "error");
+}
+
+function recargarApp() {
+  toast("✅ Guardado correctamente", "success");
+  sincronizar();
+}
+
+function errorGuardar(err) {
+  toast("⚠️ Error al guardar: " + (err.error || err.message || err), "error");
+}
+
+// ── NORMALIZADORES ──
+function normalizarVehiculo(row) {
+  return {
+    id: row.id || row.ID || Date.now()+Math.random(),
+    marca:row.Marca||row.marca||"", modelo:row.Modelo||row.modelo||"", version:row.Version||row.version||"",
+    transmision:row.Transmision||row.transmision||"", traccion:row.Traccion||row.traccion||"", motor:row.Motor||row.motor||"",
+    anio:parseInt(row["Año"]||row.anio||row.Anio||0)||0, kilometraje:parseInt(row.KM||row.kilometraje||0)||0,
+    color:row.Color||row.color||"", placa:row.Placa||row.placa||"",
+    soat:parseFecha(row.SOAT||row.soat), revTecnica:parseFecha(row.Revision_Tecnica||row.revTecnica),
+    prenda:row.Prenda||row.prenda||"No", fechaCompra:parseFecha(row.Fecha_Compra||row.fechaCompra),
+    comision:parseFloat(row.Comision||row.comision||0)||0, costoInspeccion:parseFloat(row.Costo_Inspeccion||row.costoInspeccion||0)||0,
+    gastosNotaria:parseFloat(row.Gastos_Notaria||row.gastosNotaria||0)||0, gastoFirma:parseFloat(row.Gasto_Firma||row.gastoFirma||0)||0,
+    costoCompra:parseFloat(row.Costo_Compra||row.costoCompra||0)||0, retoques:parseFloat(row.Retoques||row.retoques||0)||0,
+    gastoCombustible:parseFloat(row.Gasto_Combustible||row.gastoCombustible||0)||0, gastoLavado:parseFloat(row.Gasto_Lavado||row.gastoLavado||0)||0,
+    gastosCochera:parseFloat(row.Gastos_Cochera||row.gastosCochera||0)||0, otrosGastos:parseFloat(row.Otros_Gastos||row.otrosGastos||0)||0,
+    precioVenta:parseFloat(row.Precio_Venta||row.precioVenta||0)||0,
+    fechaPublicacion:parseFecha(row.Fecha_Publicacion||row.fechaPublicacion),
+    precioPublicacion:parseFloat(row.Precio_Publicacion||row.precioPublicacion||0)||0,
+    fechaVenta:parseFecha(row.Fecha_Venta||row.fechaVenta), descripcionGastos:row.Descripcion_de_Gastos||row.descripcionGastos||"",
+    comentarios:row.Comentario||row.comentarios||"", estado:row.Estado||row.estado||"Disponible"
+  };
+}
+function normalizarCliente(row) {
+  return {
+    id:row.id||row.ID||Date.now()+Math.random(), nombre:row.Nombre||row.nombre||"",
+    fechaContacto:parseFecha(row.Fecha_Contacto||row.fechaContacto), celular:row.Celular||row.celular||"",
+    marcaBusca:row.Marca_Busca||row.marcaBusca||"Indiferente", modeloBusca:row.Modelo_Busca||row.modeloBusca||"",
+    ranioMin:parseInt(row.Anio_Min||row.ranioMin||2015)||2015, ranioMax:parseInt(row.Anio_Max||row.ranioMax||2026)||2026,
+    presupuesto:parseFloat(row.Presupuesto||row.presupuesto||0)||0,
+    transmisionDesea:row.Transmision_Desea||row.transmisionDesea||"Indiferente",
+    carroceria:row.Carroceria||row.carroceria||"Indiferente", partePago:row.Parte_Pago||row.partePago||"No",
+    partePagoDesc:row.Parte_Pago_Desc||row.partePagoDesc||"", status:row.Status||row.status||"Tibio",
+    origen:row.Origen||row.origen||"WhatsApp", tipoPago:row.Tipo_Pago||row.tipoPago||"Por definir",
+    fechaUltimoContacto:parseFecha(row.Fecha_Ultimo_Contacto||row.fechaUltimoContacto)
+  };
+}
+function parseFecha(v) {
+  if(!v) return "";
+  if(typeof v==="string") {
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.split("T")[0];
+    const p=v.split("/");
+    if(p.length===3){let[d,m,y]=p;if(y.length===2)y="20"+y;return`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;}
+    return "";
+  }
+  try{return new Date(v).toISOString().split("T")[0];}catch{return "";}
+}
+function vehToBackend(v) {
+  return {
+    id:v.id, Marca:v.marca, Modelo:v.modelo, Version:v.version, Transmision:v.transmision,
+    Traccion:v.traccion, Motor:v.motor, "Año":v.anio, KM:v.kilometraje, Color:v.color, Placa:v.placa,
+    SOAT:v.soat, Revision_Tecnica:v.revTecnica, Prenda:v.prenda, Fecha_Compra:v.fechaCompra,
+    Comision:v.comision, Costo_Inspeccion:v.costoInspeccion, Gastos_Notaria:v.gastosNotaria,
+    Gasto_Firma:v.gastoFirma, Costo_Compra:v.costoCompra, Retoques:v.retoques,
+    Gasto_Combustible:v.gastoCombustible, Gasto_Lavado:v.gastoLavado, Gastos_Cochera:v.gastosCochera,
+    Otros_Gastos:v.otrosGastos, Precio_Venta:v.precioVenta, Fecha_Publicacion:v.fechaPublicacion,
+    Precio_Publicacion:v.precioPublicacion, Fecha_Venta:v.fechaVenta,
+    Descripcion_de_Gastos:v.descripcionGastos, Comentario:v.comentarios, Estado:v.estado
+  };
+}
+
+// ── HELPERS UI ──
+function showLoader(show) { document.getElementById("loader").style.display = show ? "flex" : "none"; }
+function toast(msg, type="success") {
+  const el = document.createElement("div");
+  el.className = `toast ${type}`; el.textContent = msg;
+  document.getElementById("toastRoot").appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+const today   = () => new Date().toISOString().split("T")[0];
+const fmt     = d => d ? new Date(d+"T00:00:00").toLocaleDateString("es-PE") : "—";
+const diffDays= (a,b) => Math.floor((new Date(b)-new Date(a))/(1000*60*60*24));
+const money   = n => "$ "+parseFloat(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const calcCostoTotal = v => [v.costoCompra,v.comision,v.costoInspeccion,v.gastosNotaria,v.gastoFirma,v.retoques,v.gastoCombustible,v.gastoLavado,v.gastosCochera,v.otrosGastos].reduce((s,x)=>s+(parseFloat(x)||0),0);
+const calcDiasStock  = v => { if(!v.fechaPublicacion) return null; const fin=v.estado==="Vendido"&&v.fechaVenta?v.fechaVenta:today(); return diffDays(v.fechaPublicacion,fin); };
+const calcUtilidad   = v => { const ct=calcCostoTotal(v); if(parseFloat(v.precioVenta)>0)return{val:parseFloat(v.precioVenta)-ct,tipo:"real"}; if(parseFloat(v.precioPublicacion)>0)return{val:parseFloat(v.precioPublicacion)-ct,tipo:"proyectada"}; return null; };
+const getCarroceria  = v => CARROCERIA_MAP[v.modelo]||"Sedán";
+const estadoColor    = e => e==="Vendido"?"#22c55e":e==="Reservado"?"#a855f7":e==="Publicado"?"#3b82f6":"#64748b";
+function badge(text,color){return`<span class="badge" style="background:${color}22;color:${color};border:1px solid ${color}55">${text}</span>`;}
+
+function matchScore(cli,veh) {
+  if(parseFloat(veh.precioPublicacion)>parseFloat(cli.presupuesto)) return null;
+  if(parseInt(cli.ranioMin)>parseInt(veh.anio)||parseInt(cli.ranioMax)<parseInt(veh.anio)) return null;
+  let score=0; const flags=[];
+  if(cli.marcaBusca===veh.marca||cli.marcaBusca==="Indiferente"){score+=30;flags.push("✅ Marca");}
+  if(!cli.modeloBusca||cli.modeloBusca.toLowerCase()===veh.modelo.toLowerCase()){score+=20;flags.push("✅ Modelo");}
+  if(cli.transmisionDesea===veh.transmision||cli.transmisionDesea==="Indiferente"){score+=20;flags.push("✅ Transmisión");}
+  if(cli.carroceria===getCarroceria(veh)||cli.carroceria==="Indiferente"){score+=15;flags.push("✅ Carrocería");}
+  if(parseFloat(veh.precioPublicacion)<=parseFloat(cli.presupuesto)*0.95){score+=15;flags.push("✅ Precio ok");}
+  return score>=50?{score,flags}:null;
+}
+function findMatchesForVeh(veh) {
+  if(!["Disponible","Publicado"].includes(veh.estado)) return [];
+  return clis.filter(c=>["Caliente","Tibio"].includes(c.status)).map(c=>{const r=matchScore(c,veh);return r?{cliente:c,score:r.score,flags:r.flags}:null;}).filter(Boolean).sort((a,b)=>{const o={Caliente:0,Tibio:1};return(o[a.cliente.status]??2)-(o[b.cliente.status]??2)||b.score-a.score;});
+}
+function findMatchesForCli(cli) {
+  if(!["Caliente","Tibio"].includes(cli.status)) return [];
+  return vehs.filter(v=>["Disponible","Publicado"].includes(v.estado)).map(v=>{const r=matchScore(cli,v);return r?{vehiculo:v,score:r.score,flags:r.flags}:null;}).filter(Boolean).sort((a,b)=>b.score-a.score);
+}
+
+// ── RENDER PRINCIPAL ──
+function render() {
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b.dataset.tab===currentTab));
+  const alertasSOAT = vehs.filter(v=>v.soat&&diffDays(today(),v.soat)>=0&&diffDays(today(),v.soat)<=30);
+  const alertasRev  = vehs.filter(v=>v.revTecnica&&diffDays(today(),v.revTecnica)>=0&&diffDays(today(),v.revTecnica)<=30);
+  const alertasCli  = clis.filter(c=>["Caliente","Tibio"].includes(c.status)&&c.fechaUltimoContacto&&diffDays(c.fechaUltimoContacto,today())>=7);
+  const totalAlertas= alertasSOAT.length+alertasRev.length+alertasCli.length;
+  const ab = document.getElementById("alertBadge");
+  if(totalAlertas>0){ab.classList.remove("hidden");ab.textContent=`🔔 ${totalAlertas}`;ab.onclick=()=>{currentTab="dashboard";render();};}
+  else ab.classList.add("hidden");
+
+  const content = document.getElementById("content");
+  if(usuarioActual&&usuarioActual.rol==="tecnico"){currentTab="inspeccion";content.innerHTML=renderInspeccion();return;}
+  if(currentTab==="dashboard")   content.innerHTML=renderDashboard(alertasSOAT,alertasRev,alertasCli);
+  else if(currentTab==="inventario") content.innerHTML=renderInventario();
+  else if(currentTab==="crm")    content.innerHTML=renderCRM();
+  else if(currentTab==="matches") content.innerHTML=renderMatches();
+  else if(currentTab==="tasadora") content.innerHTML=renderTasadora();
+  else if(currentTab==="operaciones"){content.innerHTML=renderOperaciones();if(!operaciones.length)cargarOperaciones();}
+  else if(currentTab==="inspeccion") content.innerHTML=renderInspeccion();
+}
+function setTab(t){currentTab=t;render();}
+
+// ── DASHBOARD ──
+function renderDashboard(alertasSOAT,alertasRev,alertasCli) {
+  const enStock=vehs.filter(v=>["Disponible","Publicado"].includes(v.estado));
+  const vendidos=vehs.filter(v=>v.estado==="Vendido");
+  const utilRealTotal=vendidos.reduce((s,v)=>{const u=calcUtilidad(v);return s+(u?.val||0);},0);
+  const utilProyTotal=enStock.reduce((s,v)=>{const u=calcUtilidad(v);return s+(u?.val||0);},0);
+  const cliActivos=clis.filter(c=>["Caliente","Tibio"].includes(c.status)).length;
+  const inversionStock=enStock.reduce((s,v)=>s+calcCostoTotal(v),0);
+  const stats=[
+    {label:"En Stock",val:enStock.length,icon:"🚗",color:"#3b82f6"},
+    {label:"Vendidos",val:vendidos.length,icon:"✅",color:"#22c55e"},
+    {label:"Inversión Stock",val:money(inversionStock),icon:"📦",color:"#f59e0b"},
+    {label:"Utilidad Real",val:money(utilRealTotal),icon:"💰",color:"#a855f7"},
+    {label:"Utilidad Proy.",val:money(utilProyTotal),icon:"📈",color:"#38bdf8"},
+    {label:"Clientes Activos",val:cliActivos,icon:"👥",color:"#ec4899"},
+  ];
+  let html=`<h1 class="text-xl font-extrabold mb-4">Dashboard</h1>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      ${stats.map(s=>`<div class="bg-slate-900 border border-slate-800 rounded-xl p-4"><div class="text-2xl mb-1">${s.icon}</div><div class="text-lg font-extrabold" style="color:${s.color}">${s.val}</div><div class="text-xs text-slate-500 mt-1">${s.label}</div></div>`).join("")}
+    </div>`;
+  if(alertasSOAT.length+alertasRev.length+alertasCli.length>0){
+    html+=`<div class="bg-slate-900 border border-slate-700 rounded-xl p-4 mb-4"><h3 class="text-red-500 text-sm font-bold mb-3">🔔 Alertas Activas</h3>
+      ${alertasSOAT.map(v=>`<div class="bg-red-500/10 border border-red-500/30 rounded p-2 mb-2 text-sm">⚠️ <b>SOAT por vencer:</b> ${v.marca} ${v.modelo} · ${v.placa} — vence ${fmt(v.soat)}</div>`).join("")}
+      ${alertasRev.map(v=>`<div class="bg-red-500/10 border border-red-500/30 rounded p-2 mb-2 text-sm">⚠️ <b>Rev. Técnica:</b> ${v.marca} ${v.modelo} · ${v.placa} — vence ${fmt(v.revTecnica)}</div>`).join("")}
+      ${alertasCli.map(c=>`<div class="bg-amber-500/10 border border-amber-500/30 rounded p-2 mb-2 text-sm">🟡 <b>Sin contacto ≥7 días:</b> ${c.nombre} (${c.status}) — último: ${fmt(c.fechaUltimoContacto)}</div>`).join("")}
+    </div>`;
+  }
+  html+=`<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
+    <h3 class="text-sm text-slate-400 font-bold mb-3">🚗 Stock Actual (${enStock.length})</h3>
+    <div class="overflow-x-auto"><table><thead><tr>${["Vehículo","Placa","KM","Costo","Pub.","Días","Util.","Estado"].map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>
+      ${enStock.map(v=>{const d=calcDiasStock(v);const dc=d===null?null:d>45?"#ef4444":d>20?"#f59e0b":"#22c55e";const u=calcUtilidad(v);
+        return`<tr class="clickable" onclick="openDetalle('${v.id}')"><td class="font-semibold">${v.marca} ${v.modelo} <span class="text-slate-500">${v.anio}</span></td><td class="text-slate-500">${v.placa}</td><td class="text-slate-500">${parseInt(v.kilometraje).toLocaleString()}</td><td>${money(calcCostoTotal(v))}</td><td class="text-sky-400">${money(v.precioPublicacion)}</td><td>${d!==null?`<span style="color:${dc};font-weight:700">${d}d</span>`:"—"}</td><td style="color:${u&&u.val>=0?"#4ade80":"#ef4444"}">${u?money(u.val):"—"}</td><td>${badge(v.estado,estadoColor(v.estado))}</td></tr>`;
+      }).join("")}
+    </tbody></table></div></div>`;
+  return html;
+}
+
+// ── INVENTARIO ──
+function renderInventario() {
+  const filtered=vehs.filter(v=>{const q=searchVeh.toLowerCase();return(v.marca+v.modelo+v.placa+v.anio+v.version).toLowerCase().includes(q)&&(filterEstado==="Todos"||v.estado===filterEstado);});
+  let html=`<div class="flex justify-between items-center mb-4 flex-wrap gap-2"><h1 class="text-xl font-extrabold">🚗 Inventario (${filtered.length})</h1><button onclick="openVehModal()" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-semibold">+ Nuevo Vehículo</button></div>
+  <div class="flex gap-2 mb-4 flex-wrap"><input id="searchVehInput" placeholder="🔍 Buscar..." value="${searchVeh}" oninput="searchVeh=this.value;render();setTimeout(()=>document.getElementById('searchVehInput')?.focus(),0)" class="flex-1 min-w-[200px]"><select onchange="filterEstado=this.value;render()" class="max-w-[160px]"><option ${filterEstado==="Todos"?"selected":""}>Todos</option>${ESTADOS.map(e=>`<option ${filterEstado===e?"selected":""}>${e}</option>`).join("")}</select></div><div class="grid gap-3">`;
+  if(!filtered.length) html+=`<div class="text-slate-500 text-center py-10">Sin resultados.</div>`;
+  filtered.forEach(v=>{
+    const ct=calcCostoTotal(v);const d=calcDiasStock(v);const dc=d===null?null:d>45?"#ef4444":d>20?"#f59e0b":"#22c55e";const u=calcUtilidad(v);
+    html+=`<div class="bg-slate-900 border border-slate-800 rounded-xl p-4"><div class="flex justify-between items-start flex-wrap gap-2"><div class="cursor-pointer" onclick="openDetalle('${v.id}')"><span class="font-extrabold text-base">${v.marca} ${v.modelo} ${v.version}</span><span class="text-slate-500 text-sm ml-2">${v.anio} · ${v.placa} · ${v.transmision} · ${v.color}</span>${v.prenda==="Sí"||v.prenda==="SI"?`<span class="bg-red-500/20 text-red-500 rounded px-2 py-0.5 text-xs font-bold ml-2">PRENDA</span>`:""}</div>
+    <div class="flex gap-1 items-center flex-wrap">${badge(v.estado,estadoColor(v.estado))}${d!==null?`<span style="color:${dc};background:${dc}22" class="font-bold text-xs rounded-full px-2 py-0.5">📅 ${d}d</span>`:""}<button onclick="event.stopPropagation();openVehModal('${v.id}')" class="text-slate-500 hover:text-slate-300 text-sm px-2">✏️</button></div></div>
+    <div class="flex gap-4 mt-3 flex-wrap text-sm"><span class="text-slate-500">Costo: <b class="text-slate-200">${money(ct)}</b></span>${parseFloat(v.precioPublicacion)>0?`<span class="text-slate-500">Pub: <b class="text-sky-400">${money(v.precioPublicacion)}</b></span>`:""} ${u?`<span class="text-slate-500">Util: <b style="color:${u.val>=0?"#4ade80":"#ef4444"}">${u.val>=0?"+":""}${money(u.val)}${u.tipo==="proyectada"?" (proy.)":""}</b></span>`:""}</div>
+    ${v.comentarios?`<div class="mt-2 text-slate-500 text-xs italic">💬 ${v.comentarios}</div>`:""}</div>`;
+  });
+  return html+"</div>";
+}
+
+// ── CRM ──
+function renderCRM() {
+  const filtered=clis.filter(c=>{const q=searchCli.toLowerCase();return(c.nombre+c.celular+c.marcaBusca).toLowerCase().includes(q)&&(filterStatus==="Todos"||c.status===filterStatus);});
+  filtered.sort((a,b)=>({Caliente:0,Tibio:1,"Frío":2,Descartado:3}[a.status]??99)-({Caliente:0,Tibio:1,"Frío":2,Descartado:3}[b.status]??99));
+  let html=`<div class="flex justify-between items-center mb-4 flex-wrap gap-2"><h1 class="text-xl font-extrabold">👥 CRM Clientes (${filtered.length})</h1><button onclick="openCliModal()" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-semibold">+ Nuevo Cliente</button></div>
+  <div class="flex gap-2 mb-4 flex-wrap"><input id="searchCliInput" placeholder="🔍 Buscar..." value="${searchCli}" oninput="searchCli=this.value;render();setTimeout(()=>document.getElementById('searchCliInput')?.focus(),0)" class="flex-1 min-w-[200px]"><select onchange="filterStatus=this.value;render()" class="max-w-[160px]"><option ${filterStatus==="Todos"?"selected":""}>Todos</option>${STATUS_CRM.map(s=>`<option ${filterStatus===s?"selected":""}>${s}</option>`).join("")}</select></div><div class="grid gap-3">`;
+  filtered.forEach(c=>{
+    const sinContacto=["Caliente","Tibio"].includes(c.status)&&c.fechaUltimoContacto&&diffDays(c.fechaUltimoContacto,today())>=7;
+    const ms=findMatchesForCli(c);
+    html+=`<div class="bg-slate-900 border ${ms.length>0?"ring-1 ring-green-500/40":sinContacto?"border-amber-500/40":"border-slate-800"} rounded-xl p-4">
+    <div class="flex justify-between items-start flex-wrap gap-2"><div class="cursor-pointer" onclick="openCliDetalle('${c.id}')"><span class="font-extrabold text-base">${c.nombre}</span><span class="text-slate-500 text-sm ml-2">📱 ${c.celular}</span></div>
+    <div class="flex gap-1 items-center flex-wrap">${badge(STATUS_EMOJI[c.status]+" "+c.status,STATUS_COLORS[c.status]||"#64748b")}${ms.length>0?`<span class="badge bg-green-500/20 text-green-400 border border-green-500/50">🎯 ${ms.length}</span>`:""}</div></div>
+    <div class="flex gap-3 mt-2 flex-wrap text-xs text-slate-500"><span>🚗 ${c.marcaBusca} ${c.modeloBusca}</span><span>📅 ${c.ranioMin}–${c.ranioMax}</span><span>💰 ${money(c.presupuesto)}</span><span>⚙️ ${c.transmisionDesea}</span><span>📲 ${c.origen}</span></div>
+    ${sinContacto?`<div class="mt-2 bg-amber-500/10 border border-amber-500/30 rounded p-2 text-amber-500 text-xs">⚠️ Sin contacto hace ${diffDays(c.fechaUltimoContacto,today())} días</div>`:""}
+    ${ms.length>0?`<div class="mt-3 bg-green-500/5 border border-green-500/20 rounded p-2"><div class="text-green-400 text-xs font-bold mb-1">🎯 Vehículos compatibles:</div>${ms.slice(0,3).map(m=>`<div class="text-xs text-slate-300 py-0.5"><b>${m.vehiculo.marca} ${m.vehiculo.modelo}</b> ${m.vehiculo.anio} · ${money(m.vehiculo.precioPublicacion)} · <span class="text-sky-400">${m.score}/100</span></div>`).join("")}</div>`:""}</div>`;
+  });
+  return html+"</div>";
+}
+
+// ── MATCHES ──
+function renderMatches() {
+  const stockVehs=vehs.filter(v=>["Disponible","Publicado"].includes(v.estado));
+  let html=`<h1 class="text-xl font-extrabold mb-1">🎯 Motor de Match</h1><p class="text-slate-500 text-sm mb-4">Selecciona un vehículo para ver clientes compatibles.</p><div class="grid md:grid-cols-2 gap-4"><div><h3 class="text-sm text-slate-400 font-bold mb-2">Vehículos en Stock</h3>`;
+  stockVehs.forEach(v=>{
+    const ms=findMatchesForVeh(v);const selected=lastMatchVeh?.id===v.id;
+    html+=`<div onclick="selectMatch('${v.id}')" class="bg-slate-900 border ${selected?'border-blue-500':'border-slate-800'} rounded-lg p-3 mb-2 cursor-pointer hover:border-slate-600"><div class="flex justify-between items-center flex-wrap gap-1"><div><div class="font-bold text-sm">${v.marca} ${v.modelo} ${v.version} ${v.anio}</div><div class="text-slate-500 text-xs mt-1">${v.placa} · ${money(v.precioPublicacion)}</div></div>${ms.length>0?`<span class="badge bg-blue-500/20 text-sky-400 border border-blue-500/50">${ms.length}</span>`:""}</div></div>`;
+  });
+  html+=`</div><div><h3 class="text-sm text-slate-400 font-bold mb-2">${lastMatchVeh?`Matches: ${lastMatchVeh.marca} ${lastMatchVeh.modelo} (${lastMatches.length})`:"Selecciona un vehículo"}</h3>`;
+  if(lastMatchVeh){
+    if(!lastMatches.length) html+=`<div class="bg-slate-900 border border-slate-800 rounded-lg p-5 text-center text-slate-500 text-sm">Sin clientes compatibles.</div>`;
+    else lastMatches.forEach(m=>{html+=`<div class="bg-slate-900 border border-slate-800 rounded-lg p-3 mb-2"><div class="flex justify-between items-center mb-1 flex-wrap gap-1"><div><span class="font-bold">${m.cliente.nombre}</span><span class="ml-2">${badge(STATUS_EMOJI[m.cliente.status]+" "+m.cliente.status,STATUS_COLORS[m.cliente.status]||"#64748b")}</span></div><span class="badge bg-blue-500/20 text-sky-400 border border-blue-500/50">${m.score}/100</span></div><div class="text-slate-500 text-xs mb-1">📱 ${m.cliente.celular} · 💰 ${money(m.cliente.presupuesto)}</div><div class="flex flex-wrap gap-1">${m.flags.map(f=>`<span class="bg-green-500/20 text-green-400 border border-green-500/30 rounded px-2 py-0.5 text-xs">${f}</span>`).join("")}</div></div>`;});
+  }
+  return html+"</div></div>";
+}
+function selectMatch(id){lastMatchVeh=vehs.find(v=>String(v.id)===String(id));lastMatches=findMatchesForVeh(lastMatchVeh);render();}
+
+// ══════════════════════════════════════════════════════════════
+// MÓDULO TASACIÓN
+// ══════════════════════════════════════════════════════════════
+let tasadoraData = { placa:"", valorComercial:0, costoReacondicionamiento:0, cargasLegales:0, margenGanancia:15 };
+
+function calcularOferta(d) {
+  const valorComercial=parseFloat(d.valorComercial)||0, reacond=parseFloat(d.costoReacondicionamiento)||0,
+        cargas=parseFloat(d.cargasLegales)||0, margen=parseFloat(d.margenGanancia)||0;
+  const totalDeducciones=reacond+cargas, utilidadNeta=valorComercial*(margen/100),
+        precioMaxOferta=valorComercial-totalDeducciones-utilidadNeta, inversionTotal=precioMaxOferta+totalDeducciones;
+  return{valorComercial,reacond,cargas,totalDeducciones,utilidadNeta,precioMaxOferta,inversionTotal,margen};
+}
+
+function renderTasadora() {
+  const d=tasadoraData, r=calcularOferta(d), ofertaInvalida=r.precioMaxOferta<=0&&r.valorComercial>0;
+  return `<div class="max-w-6xl mx-auto">
+    <div class="mb-5"><h1 class="text-xl font-extrabold">⚖️ Tasación · Valor de Mercado</h1><p class="text-slate-500 text-sm mt-1">Herramienta financiera para decidir el precio máximo de oferta.</p></div>
+
+    ${ultimoIdOperacion?`<div class="bg-blue-500/10 border border-blue-500/40 rounded-xl p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
+      <div><div class="text-sky-400 font-bold text-sm">✅ Última operación generada</div><div class="text-2xl font-black text-white mt-1">${ultimoIdOperacion}</div><div class="text-slate-400 text-xs mt-1">Comparte este código con el técnico para vincular la inspección</div></div>
+      <button onclick="ultimoIdOperacion=null;render()" class="text-slate-500 text-xs hover:text-slate-300">✕ Cerrar</button>
+    </div>`:""}
+
+    <div class="grid lg:grid-cols-2 gap-5">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <div class="section-title">📥 Ingreso de Datos</div>
+        <div class="space-y-4">
+          <div><label>1. Placa del Vehículo</label><input id="tasPlaca" type="text" value="${d.placa}" placeholder="ABC-123" oninput="tasadoraData.placa=this.value.toUpperCase();document.getElementById('tasPlaca').value=this.value.toUpperCase()" class="uppercase"></div>
+          <div><label>2. Valor Comercial Promedio ($)</label><input type="number" min="0" step="100" value="${d.valorComercial||""}" placeholder="15000" oninput="tasadoraData.valorComercial=parseFloat(this.value)||0;actualizarResultados()"><div class="text-xs text-slate-500 mt-1">¿A cuánto se vende un auto idéntico hoy?</div></div>
+          <div><label>3. Costo de Reacondicionamiento ($)</label><input type="number" min="0" step="50" value="${d.costoReacondicionamiento||""}" placeholder="800" oninput="tasadoraData.costoReacondicionamiento=parseFloat(this.value)||0;actualizarResultados()"></div>
+          <div><label>4. Cargas Legales y Trámites ($)</label><input type="number" min="0" step="50" value="${d.cargasLegales||""}" placeholder="350" oninput="tasadoraData.cargasLegales=parseFloat(this.value)||0;actualizarResultados()"></div>
+          <div><label>5. Margen de Ganancia Esperado (%)</label>
+            <div class="flex gap-2 items-center"><input type="number" min="0" max="100" step="0.5" value="${d.margenGanancia}" oninput="tasadoraData.margenGanancia=parseFloat(this.value)||0;actualizarResultados()" class="flex-1 text-lg font-bold text-amber-300"><span class="text-amber-300 font-bold text-lg">%</span></div>
+            <div class="flex gap-2 mt-2">${[10,15,20,25].map(p=>`<button onclick="tasadoraData.margenGanancia=${p};render()" class="flex-1 border ${d.margenGanancia==p?'border-amber-500 bg-amber-500/20 text-amber-300':'border-slate-700 text-slate-400'} rounded py-1 text-xs font-semibold">${p}%</button>`).join("")}</div>
+          </div>
+          <button onclick="tasadoraData={placa:'',valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};render()" class="w-full border border-slate-700 text-slate-400 rounded-lg py-2 text-xs">🗑 Limpiar</button>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div id="heroOferta" class="bg-gradient-to-br ${ofertaInvalida?'from-red-900/60 to-red-950/40 border-red-500/60':'from-emerald-900/60 to-blue-900/40 border-emerald-500/60'} border-2 rounded-2xl p-6 shadow-2xl">
+          <div class="text-xs uppercase tracking-widest ${ofertaInvalida?'text-red-300':'text-emerald-300'} font-bold mb-2">💰 Precio Máximo de Oferta</div>
+          <div id="precioMaxDisplay" class="text-5xl md:text-6xl font-black ${ofertaInvalida?'text-red-300':'text-white'} tracking-tight">${money(r.precioMaxOferta)}</div>
+          <div id="ofertaSubtext" class="text-xs mt-3 ${ofertaInvalida?'text-red-400':'text-emerald-200/80'}">${ofertaInvalida?'⚠️ La operación no es rentable':'Este es el máximo que puedes pagar.'}</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+          <div class="section-title">📊 Desglose</div>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-800"><span class="text-slate-400">Valor Comercial</span><span id="desgValorComercial" class="font-bold text-slate-200 text-base">${money(r.valorComercial)}</span></div>
+            <div class="bg-slate-800/40 rounded-lg p-3 -mx-1">
+              <div class="flex justify-between items-center text-xs mb-2"><span class="text-slate-500">Reacondicionamiento</span><span id="desgReacond" class="text-red-300">−${money(r.reacond)}</span></div>
+              <div class="flex justify-between items-center text-xs mb-2"><span class="text-slate-500">Cargas Legales</span><span id="desgCargas" class="text-red-300">−${money(r.cargas)}</span></div>
+              <div class="flex justify-between items-center pt-2 border-t border-slate-700"><span class="text-slate-400 font-semibold text-sm">Total Deducciones</span><span id="desgDeducciones" class="font-bold text-red-400 text-base">−${money(r.totalDeducciones)}</span></div>
+            </div>
+            <div class="flex justify-between items-center bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+              <div><div class="text-amber-200 font-semibold">Utilidad Proyectada</div><div class="text-amber-500/60 text-xs mt-0.5"><span id="desgMargen">${r.margen}</span>% sobre valor comercial</div></div>
+              <span id="desgUtilidad" class="font-extrabold text-amber-300 text-lg">${money(r.utilidadNeta)}</span>
+            </div>
+            <div class="flex justify-between items-center pt-3 border-t-2 border-slate-700">
+              <div><div class="text-slate-300 font-bold">Inversión Total Real</div><div class="text-slate-500 text-xs">Oferta + reacondicionamiento + cargas</div></div>
+              <span id="desgInversion" class="font-bold text-sky-300 text-base">${money(r.inversionTotal)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DOS BOTONES: flujo referencial vs. con inspección -->
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="enviarTasacion(false)" class="bg-gradient-to-br from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white rounded-xl py-4 font-bold shadow-lg transition">
+            📋 Precio Referencial
+            <div class="text-xs font-normal opacity-70 mt-0.5">Sin inspección</div>
+          </button>
+          <button onclick="enviarTasacion(true)" class="bg-gradient-to-br from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 text-white rounded-xl py-4 font-bold shadow-lg shadow-emerald-500/20 transition">
+            🔗 Con Inspección
+            <div class="text-xs font-normal opacity-70 mt-0.5">Genera código OP</div>
+          </button>
+        </div>
+        <div class="text-center text-xs text-slate-600">Fórmula: Oferta = Valor Comercial − Deducciones − Utilidad Esperada</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function actualizarResultados() {
+  const r=calcularOferta(tasadoraData), ofertaInvalida=r.precioMaxOferta<=0&&r.valorComercial>0;
+  const hero=document.getElementById("heroOferta"), display=document.getElementById("precioMaxDisplay"), subtext=document.getElementById("ofertaSubtext");
+  if(!hero||!display) return;
+  hero.className=`bg-gradient-to-br ${ofertaInvalida?'from-red-900/60 to-red-950/40 border-red-500/60':'from-emerald-900/60 to-blue-900/40 border-emerald-500/60'} border-2 rounded-2xl p-6 shadow-2xl`;
+  display.className=`text-5xl md:text-6xl font-black ${ofertaInvalida?'text-red-300':'text-white'} tracking-tight`;
+  display.textContent=money(r.precioMaxOferta);
+  subtext.className=`text-xs mt-3 ${ofertaInvalida?'text-red-400':'text-emerald-200/80'}`;
+  subtext.textContent=ofertaInvalida?'⚠️ La operación no es rentable':'Este es el máximo que puedes pagar.';
+  ["desgValorComercial","desgReacond","desgCargas","desgDeducciones","desgUtilidad","desgMargen","desgInversion"].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    if(id==="desgValorComercial") el.textContent=money(r.valorComercial);
+    else if(id==="desgReacond")   el.textContent="−"+money(r.reacond);
+    else if(id==="desgCargas")    el.textContent="−"+money(r.cargas);
+    else if(id==="desgDeducciones") el.textContent="−"+money(r.totalDeducciones);
+    else if(id==="desgUtilidad")  el.textContent=money(r.utilidadNeta);
+    else if(id==="desgMargen")    el.textContent=r.margen;
+    else if(id==="desgInversion") el.textContent=money(r.inversionTotal);
+  });
+}
+
+function enviarTasacion(conInspeccion) {
+  const r=calcularOferta(tasadoraData);
+  if(!tasadoraData.placa){toast("⚠️ Ingresa la placa del vehículo","error");return;}
+  if(r.valorComercial<=0){toast("⚠️ Ingresa el valor comercial","error");return;}
+  const etiqueta=conInspeccion?"Con Inspección":"Precio Referencial";
+  if(!confirm(`¿Guardar tasación de ${tasadoraData.placa} como "${etiqueta}"?\nOferta máx: ${money(r.precioMaxOferta)}`)) return;
+  toast("Guardando...", "success");
+  apiFetch('guardarTasacion', {
+    placa:tasadoraData.placa, valorComercial:tasadoraData.valorComercial,
+    costoReacondicionamiento:tasadoraData.costoReacondicionamiento, cargasLegales:tasadoraData.cargasLegales,
+    margenGanancia:tasadoraData.margenGanancia, totalDeducciones:r.totalDeducciones,
+    utilidadNeta:r.utilidadNeta, precioMaxOferta:r.precioMaxOferta, inversionTotal:r.inversionTotal,
+    estado:conInspeccion?'Aprobada':'Cotización', conInspeccion:conInspeccion,
+    usuario:usuarioActual?usuarioActual.nombre:""
+  }).then(res=>{
+    if(res.exito){
+      toast("✅ "+res.mensaje,"success");
+      ultimoIdOperacion = conInspeccion ? res.idOperacion : null;
+      tasadoraData={placa:"",valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};
+      operaciones=[];   // forzar recarga en tab operaciones
+      render();
+    } else { toast("⚠️ "+(res.error||"Error al guardar"),"error"); }
+  }).catch(()=>toast("⚠️ Error de conexión","error"));
+}
+
+// ══════════════════════════════════════════════════════════════
+// MÓDULO OPERACIONES (reemplaza Cotizaciones)
+// ══════════════════════════════════════════════════════════════
+function cargarOperaciones() {
+  operacionesCargando=true; render();
+  apiGet('operaciones')
+    .then(data=>{operaciones=data||[];operacionesCargando=false;render();})
+    .catch(()=>{operacionesCargando=false;operaciones=[];toast("⚠️ Error al cargar operaciones","error");render();});
+}
+
+function renderOperaciones() {
+  const filtros=["Todas","Precio Referencial","Con Inspección"];
+  const filtered=operaciones.filter(op=>{
+    if(filtroOperaciones==="Todas") return true;
+    return String(op.Estado_Operacion||"")===filtroOperaciones;
+  });
+  const totalOp=operaciones.length, conInsp=operaciones.filter(o=>o.inspeccion).length, soloPrecio=operaciones.filter(o=>!o.inspeccion).length;
+
+  let html=`<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+      <h1 class="text-xl font-extrabold">📑 Historial de Operaciones</h1>
+      <button onclick="cargarOperaciones()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1 border border-slate-700 rounded">🔄 Recargar</button>
+    </div>
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4"><div class="text-xs text-slate-500">Total Operaciones</div><div class="text-2xl font-extrabold text-sky-400 mt-1">${totalOp}</div></div>
+      <div class="bg-emerald-900/20 border border-emerald-500/40 rounded-xl p-4"><div class="text-xs text-emerald-300">🔗 Con Inspección</div><div class="text-2xl font-extrabold text-emerald-400 mt-1">${conInsp}</div></div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4"><div class="text-xs text-slate-500">📋 Solo Precio Ref.</div><div class="text-2xl font-extrabold text-amber-400 mt-1">${soloPrecio}</div></div>
+    </div>
+    <div class="flex gap-2 mb-4 flex-wrap">${filtros.map(f=>`<button onclick="filtroOperaciones='${f}';render()" class="${filtroOperaciones===f?'bg-blue-600 text-white':'bg-slate-800 text-slate-400 hover:bg-slate-700'} rounded-lg px-4 py-2 text-sm font-semibold">${f}</button>`).join("")}</div>`;
+
+  if(operacionesCargando){
+    html+=`<div class="text-center py-10"><div class="spinner mx-auto mb-3"></div><div class="text-slate-500 text-sm">Cargando operaciones...</div></div>`;
+  } else if(!filtered.length){
+    html+=`<div class="bg-slate-900 border border-slate-800 rounded-xl p-10 text-center"><div class="text-5xl mb-3">📭</div><p class="text-slate-400">Sin operaciones${filtroOperaciones!=="Todas"?" en este filtro":""}.</p><p class="text-slate-500 text-xs mt-2">Ve a ⚖️ Tasación para crear una.</p></div>`;
+  } else {
+    html+=`<div class="space-y-3">`;
+    filtered.forEach(op=>{
+      const opId   = op.ID_Operacion || '—';
+      const estaExp= opExpandidas[opId];
+      const esLegacy=op._legacy;
+      const tieneInsp=!!op.inspeccion;
+      const estadoBadge=tieneInsp?'bg-emerald-500/20 text-emerald-400 border-emerald-500/50':'bg-amber-500/20 text-amber-400 border-amber-500/50';
+      const estadoLabel=tieneInsp?'🔗 Con Inspección':'📋 Precio Referencial';
+
+      html+=`<div class="bg-slate-900 border ${tieneInsp?'border-emerald-500/30':'border-slate-800'} rounded-xl overflow-hidden">
+        <!-- Header siempre visible -->
+        <div class="p-4 cursor-pointer hover:bg-slate-800/30 transition" onclick="opExpandidas['${opId}']=!opExpandidas['${opId}'];render()">
+          <div class="flex justify-between items-center flex-wrap gap-2">
+            <div class="flex items-center gap-3">
+              <span class="text-sky-400 font-black text-lg">${esLegacy?'—':opId}</span>
+              <div><div class="font-bold text-sm">${op.Placa||'—'}</div><div class="text-slate-500 text-xs mt-0.5">${op.Fecha||''} · ${op.Usuario||''}</div></div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="badge ${estadoBadge} border">${estadoLabel}</span>
+              <span class="text-emerald-300 font-bold">${money(op.Precio_Maximo_Oferta)}</span>
+              <span class="text-slate-400 text-lg">${estaExp?'⌃':'⌄'}</span>
+            </div>
+          </div>
+        </div>
+
+        ${estaExp?`
+        <!-- Detalle expandido -->
+        <div class="border-t border-slate-800 p-4">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
+            <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Valor Comercial</div><div class="font-bold">${money(op.Valor_Comercial)}</div></div>
+            <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Deducciones</div><div class="font-bold text-red-400">−${money(op.Total_Deducciones)}</div></div>
+            <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Margen</div><div class="font-bold text-amber-400">${op.Margen_Ganancia_Pct||0}%</div></div>
+            <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Utilidad Proy.</div><div class="font-bold text-emerald-400">${money(op.Utilidad_Proyectada)}</div></div>
+          </div>
+
+          ${tieneInsp?`
+          <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+            <div class="flex justify-between items-start flex-wrap gap-2 mb-3">
+              <div><div class="text-emerald-400 font-bold text-sm">📋 Inspección vinculada</div><div class="text-sky-300 font-black text-lg">${op.inspeccion.id_inspeccion||'—'}</div></div>
+              <div class="text-right"><div class="text-slate-400 text-xs">Score Global</div><div class="text-3xl font-black ${(op.inspeccion.score_global||0)>=70?'text-emerald-400':(op.inspeccion.score_global||0)>=50?'text-amber-400':'text-red-400'}">${op.inspeccion.score_global||'—'}</div></div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-3">
+              <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Veredicto</div><div class="font-bold ${op.inspeccion.veredicto==='Sí'?'text-emerald-400':op.inspeccion.veredicto==='No'?'text-red-400':'text-amber-400'}">${op.inspeccion.veredicto||'—'}</div></div>
+              <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Costo Reparación</div><div class="font-bold text-red-300">${money(op.inspeccion.costo_reparacion)}</div></div>
+              <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Precio Sugerido</div><div class="font-bold text-sky-300">${money(op.inspeccion.precio_sugerido)}</div></div>
+              <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Técnico</div><div class="font-bold">${op.inspeccion.tecnico||'—'}</div></div>
+              <div class="bg-slate-800/50 rounded p-2"><div class="text-slate-500 text-xs">Fecha Insp.</div><div class="font-bold">${op.inspeccion.fecha||'—'}</div></div>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              ${op.inspeccion.pdf_url?`<a href="${op.inspeccion.pdf_url}" target="_blank" class="bg-red-500/20 text-red-400 border border-red-500/40 rounded-lg px-4 py-2 text-xs font-bold hover:bg-red-500/30">📄 Ver PDF</a>`:''}
+              ${op.inspeccion.link_fotos?`<a href="${op.inspeccion.link_fotos}" target="_blank" class="bg-blue-500/20 text-sky-400 border border-blue-500/40 rounded-lg px-4 py-2 text-xs font-bold hover:bg-blue-500/30">📷 Ver Fotos</a>`:''}
+              ${op.inspeccion.fecha_venc_fotos?`<span class="text-slate-500 text-xs self-center">⏰ Fotos vencen: ${op.inspeccion.fecha_venc_fotos}</span>`:''}
+            </div>
+          </div>`:`
+          <div class="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 text-center">
+            <div class="text-amber-400 text-sm font-semibold mb-1">📋 Sin inspección vinculada</div>
+            <div class="text-slate-500 text-xs">Esta operación es solo de precio referencial.</div>
+            ${!esLegacy?`<div class="text-slate-600 text-xs mt-1">Código para el técnico: <span class="text-sky-400 font-bold">${opId}</span></div>`:''}
+          </div>`}
+
+          <div class="flex justify-end mt-3">
+            <button onclick="eliminarOperacion(${op._rowIndex},'${op.Placa||''}')" class="text-red-400 hover:text-red-300 text-xs px-3 py-1 border border-red-500/30 rounded">🗑 Eliminar</button>
+          </div>
+        </div>`:''}
+      </div>`;
+    });
+    html+="</div>";
+  }
+  return html+"</div>";
+}
+
+function eliminarOperacion(rowIndex, placa) {
+  if(!confirm(`¿Eliminar la operación de ${placa}? Esta acción no se puede deshacer.`)) return;
+  apiFetch('eliminarTasacion',{rowIndex}).then(res=>{
+    toast(res.exito?"✅ Operación eliminada":"⚠️ "+res.error, res.exito?"success":"error");
+    if(res.exito) cargarOperaciones();
+  }).catch(()=>toast("⚠️ Error de conexión","error"));
+}
+
+// ══════════════════════════════════════════════════════════════
+// MÓDULO INSPECCIÓN
+// ══════════════════════════════════════════════════════════════
+const ESTADO_ESTRUCTURAL = ["","Original / Conforme","Repintado / Reparado","Requiere Reparación","Falla Crítica"];
+const ESTADO_MECANICO    = ["","Conforme","Desgaste Normal","Requiere Mantenimiento","Falla Crítica"];
+const ESTADO_OPERATIVO   = ["","Operativo","Desgaste Normal","Requiere Reparación"];
+const ESTADO_ESTETICA    = ["","Excelente","Desgaste Leve","Roto/Para Retapizar"];
+
+function colorSelectEstado(val) {
+  if(!val) return "";
+  const v=val.toLowerCase();
+  if(v.includes("original")||v.includes("conforme")||v.includes("operativo")||v.includes("excelente")) return "border-green-500/60 text-green-300";
+  if(v.includes("repintado")||v.includes("desgaste")||v.includes("mantenimiento")||v.includes("leve")) return "border-amber-500/60 text-amber-300";
+  if(v.includes("requiere")||v.includes("roto")||v.includes("retapizar")) return "border-orange-500/60 text-orange-300";
+  if(v.includes("crítica")||v.includes("critica")) return "border-red-500/60 text-red-400";
+  return "";
+}
+
+const INSPECCION_SECCIONES = [
+  { id:"s1", icon:"📄", titulo:"Datos Generales y Documentación",
+    campos:[
+      {k:"placa",l:"Placa",t:"text",req:true},{k:"marca",l:"Marca",t:"text"},{k:"modelo",l:"Modelo",t:"text"},
+      {k:"version",l:"Versión",t:"text"},{k:"anio",l:"Año de fabricación",t:"number"},{k:"vin",l:"N° VIN / Chasis",t:"text"},
+      {k:"km",l:"Kilometraje indicado",t:"number"},{k:"tecnico",l:"Técnico responsable",t:"text"},
+      {k:"transmision",l:"Tipo de transmisión",t:"select",opts:["","MT","AT","CVT"]},
+      {k:"vinCoincide",l:"¿VIN coincide con Tarjeta de Propiedad?",t:"select",opts:["","Sí","No","No presentó"]},
+      {k:"lugar",l:"Lugar de Inspección",t:"text",full:true},{k:"linkFotos",l:"Link fotos externo (opcional)",t:"text",full:true},
+    ]},
+  { id:"s2", icon:"🚙", titulo:"Estructural y Exterior",
+    campos:[
+      {k:"e_chasis",l:"Chasis principal (Largueros)",t:"estructural"},{k:"e_compactos",l:"Compactos del/post",t:"estructural"},
+      {k:"e_pintura",l:"Espesor/tono de pintura general",t:"estructural"},{k:"e_cuadre_capot",l:"Cuadre de capot",t:"estructural"},
+      {k:"e_cuadre_puertas",l:"Cuadre de puertas",t:"estructural"},{k:"e_cuadre_maletera",l:"Cuadre de maletera",t:"estructural"},
+      {k:"e_parachoque_d",l:"Parachoques delantero",t:"estructural"},{k:"e_parachoque_p",l:"Parachoques posterior",t:"estructural"},
+      {k:"e_lunas",l:"Lunas y parabrisas",t:"estructural"},{k:"e_faros",l:"Faros y neblineros",t:"estructural"},
+      {k:"e_bajos",l:"Bajos del vehículo (óxido/golpes)",t:"estructural"},
+      {k:"obs_carroceria",l:"Detalles de piezas repintadas, masilla o daños",t:"textarea",full:true},
+    ]},
+  { id:"s3", icon:"⚙️", titulo:"Inspección del Motor",
+    campos:[
+      {k:"m_encendido",l:"Encendido en frío",t:"mecanico"},{k:"m_ralenti",l:"Estabilidad de RPM",t:"mecanico"},
+      {k:"m_fugas_tapa",l:"Tapa de balancines (fugas)",t:"mecanico"},{k:"m_fugas_carter",l:"Cárter y retenes (fugas)",t:"mecanico"},
+      {k:"m_refrigerante",l:"Líquido refrigerante",t:"mecanico"},{k:"m_aceite",l:"Aceite de motor",t:"mecanico"},
+      {k:"m_frenos",l:"Líquido de frenos",t:"mecanico"},{k:"m_soportes",l:"Soportes de motor/caja",t:"mecanico"},
+      {k:"m_fajas",l:"Fajas de accesorios",t:"mecanico"},{k:"m_escape",l:"Emisión de gases (humo)",t:"mecanico"},
+      {k:"bateria_soh",l:"Batería % SOH",t:"text"},{k:"bateria_voltaje",l:"Voltaje batería",t:"text"},
+      {k:"obs_motor",l:"Observaciones de motor y compartimiento",t:"textarea",full:true},
+    ]},
+  { id:"s4", icon:"🛣️", titulo:"Prueba de Ruta, Chasis Inferior y Llantas",
+    campos:[
+      {k:"s_direccion",l:"Cremallera / Dirección",t:"mecanico"},{k:"s_amortiguadores",l:"Amortiguadores (fugas/rebote)",t:"mecanico"},
+      {k:"s_palieres",l:"Palieres y guardapolvos",t:"mecanico"},{k:"s_frenos",l:"Discos y pastillas de freno",t:"mecanico"},
+      {k:"s_caja",l:"Desempeño de embrague / caja",t:"mecanico"},{k:"s_aros",l:"Aros (deformaciones)",t:"mecanico"},
+      {k:"s_llantas_del",l:"Vida útil neumáticos delanteros (%)",t:"text"},{k:"s_llantas_post",l:"Vida útil neumáticos posteriores (%)",t:"text"},
+      {k:"repuesto",l:"Llanta de repuesto y herramientas",t:"select",opts:["","Completo","Faltan herramientas","No tiene"]},
+    ]},
+  { id:"s5", icon:"🔌", titulo:"Electrónica y Habitáculo",
+    campos:[
+      {k:"escaneo_uso",l:"¿Se conectó escáner OBD2?",t:"select",opts:["","Sí","No"]},
+      {k:"escaneo_detalles",l:"Códigos de falla (DTC) encontrados",t:"text",full:true},
+      {k:"i_testigos",l:"Testigos en tablero",t:"operativo"},{k:"i_airbags",l:"Integridad de airbags",t:"operativo"},
+      {k:"i_ac",l:"Aire acondicionado",t:"operativo"},{k:"i_electrico",l:"Sistema eléctrico (lunas/luces)",t:"operativo"},
+      {k:"asientos",l:"Estado de asientos / tapicería",t:"estetica"},{k:"timon_plasticos",l:"Estado de timón y plásticos",t:"estetica"},
+    ]},
+  { id:"s6", icon:"💰", titulo:"Veredicto Financiero", crucial:true,
+    campos:[
+      // Regla 4: solo costo_reparacion — precio_sugerido lo calcula el backend desde la tasación
+      {k:"costo_reparacion",l:"Monto de inversión estimada para reparaciones ($) *",t:"number",req:true,highlight:true},
+      {k:"recomendacion_texto",l:"Sustento técnico del veredicto",t:"textarea",full:true},
+      {k:"veredicto_final",l:"¿Se recomienda la compra?",t:"select",opts:["","Sí","No","SÍ - Castigar precio"],full:true,highlight:true},
+    ]},
+];
+
+let inspeccionData   = {};
+let seccionesAbiertas= {s1:true,s2:false,s3:false,s4:false,s5:false,s6:false};
+let archivosInspeccion = []; // archivos seleccionados para subir
+
+function renderInspeccion() {
+  let html=`<div class="max-w-3xl mx-auto">
+    <div class="mb-5"><h1 class="text-xl font-extrabold">📋 Inspección Técnica</h1><p class="text-slate-500 text-sm mt-1">Peritaje de campo. Toca cada sección para expandir.</p></div>
+
+    <!-- CAMPO: ID OPERACIÓN (vincula con tasación) -->
+    <div class="bg-slate-900 border-2 border-blue-500/30 rounded-xl p-4 mb-3">
+      <div class="flex items-center gap-2 mb-2"><span class="text-blue-400 text-lg">🔗</span><span class="text-blue-400 font-bold text-sm">Código de Operación</span><span class="text-slate-500 text-xs">(opcional — proporcionado por el admin)</span></div>
+      <input type="text" placeholder="Ej: OP-0001" value="${inspeccionData.id_operacion||''}"
+        oninput="inspeccionData.id_operacion=this.value.toUpperCase();this.value=this.value.toUpperCase()"
+        class="uppercase font-bold text-blue-300 border-blue-500/50 text-lg tracking-wider">
+      <div class="text-slate-500 text-xs mt-2">Si el admin generó un código de tasación, ingrésalo aquí para vincular esta inspección.</div>
+    </div>`;
+
+  INSPECCION_SECCIONES.forEach(sec=>{
+    const abierta=seccionesAbiertas[sec.id];
+    const completados=sec.campos.filter(c=>inspeccionData[c.k]&&String(inspeccionData[c.k]).trim()!=="").length;
+    const total=sec.campos.length;
+    const ringClass=sec.crucial?"ring-2 ring-amber-500/40":"";
+    html+=`<div class="bg-slate-900 border border-slate-800 ${ringClass} rounded-xl mb-3 overflow-hidden">
+      <button onclick="toggleSeccion('${sec.id}')" class="w-full flex justify-between items-center p-4 hover:bg-slate-800/40 transition">
+        <div class="flex items-center gap-3"><span class="text-2xl">${sec.icon}</span><div class="text-left"><div class="font-bold text-sm">${sec.titulo}</div><div class="text-xs text-slate-500 mt-0.5">${completados}/${total} campos</div></div></div>
+        <div class="flex items-center gap-2">${completados===total?'<span class="text-green-400 text-lg">✓</span>':completados>0?'<span class="text-amber-400 text-xs">●</span>':''}<span class="text-slate-400 text-xl">${abierta?'⌃':'⌄'}</span></div>
+      </button>`;
+    if(abierta){
+      html+=`<div class="px-4 pb-4 border-t border-slate-800 pt-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">`;
+      sec.campos.forEach(c=>{
+        const val=inspeccionData[c.k]||"", fullClass=c.full?"sm:col-span-2":"", reqMark=c.req?'<span class="text-red-400">*</span>':'', hl=c.highlight?'text-amber-300':'';
+        if(["estructural","mecanico","operativo","estetica"].includes(c.t)){
+          const opts=c.t==="estructural"?ESTADO_ESTRUCTURAL:c.t==="mecanico"?ESTADO_MECANICO:c.t==="operativo"?ESTADO_OPERATIVO:ESTADO_ESTETICA;
+          const colorClass=colorSelectEstado(val);
+          html+=`<div class="${fullClass}"><label class="${hl}">${c.l} ${reqMark}</label><select data-insp="${c.k}" onchange="inspeccionData['${c.k}']=this.value;render()" class="${colorClass}">${opts.map(o=>`<option value="${o}" ${val===o?"selected":""}>${o||"— seleccionar —"}</option>`).join("")}</select></div>`;
+        } else if(c.t==="select"){
+          html+=`<div class="${fullClass}"><label class="${hl}">${c.l} ${reqMark}</label><select data-insp="${c.k}" onchange="inspeccionData['${c.k}']=this.value;render()">${c.opts.map(o=>`<option value="${o}" ${val===o?"selected":""}>${o||"— seleccionar —"}</option>`).join("")}</select></div>`;
+        } else if(c.t==="textarea"){
+          html+=`<div class="${fullClass}"><label class="${hl}">${c.l} ${reqMark}</label><textarea data-insp="${c.k}" rows="3" oninput="inspeccionData['${c.k}']=this.value">${val}</textarea></div>`;
+        } else {
+          const hiInput=c.highlight?'bg-amber-500/5 border-amber-500/50 text-amber-100 font-bold text-base':'';
+          html+=`<div class="${fullClass}"><label class="${hl}">${c.l} ${reqMark}</label><input data-insp="${c.k}" type="${c.t}" value="${val}" oninput="inspeccionData['${c.k}']=this.value" class="${hiInput}"></div>`;
+        }
+      });
+      html+=`</div></div>`;
+    }
+    html+=`</div>`;
+  });
+
+  // SECCIÓN 7: Evidencia Fotográfica
+  html+=`<div class="bg-slate-900 border-2 border-sky-500/30 rounded-xl mb-3 overflow-hidden">
+    <button onclick="seccionesAbiertas['s7']=!seccionesAbiertas['s7'];render()" class="w-full flex justify-between items-center p-4 hover:bg-slate-800/40 transition">
+      <div class="flex items-center gap-3"><span class="text-2xl">📷</span><div class="text-left"><div class="font-bold text-sm">Evidencia Fotográfica</div><div class="text-xs text-slate-500 mt-0.5">${archivosInspeccion.length>0?archivosInspeccion.length+" archivo(s) seleccionado(s)":"Sin fotos aún (opcional)"}</div></div></div>
+      <span class="text-slate-400 text-xl">${seccionesAbiertas['s7']?'⌃':'⌄'}</span>
+    </button>
+    ${seccionesAbiertas['s7']?`
+    <div class="px-4 pb-4 border-t border-slate-800 pt-4">
+      <label class="block mb-2 text-sky-400">Fotos y videos de la inspección</label>
+      <input type="file" id="fotosInspeccion" accept="image/*,video/*" multiple onchange="archivosInspeccion=Array.from(this.files);actualizarContadorFotos()" class="mb-3">
+      <div id="previewFotos" class="flex flex-wrap gap-2 mt-2"></div>
+      <div class="text-slate-500 text-xs mt-2">✅ Acepta múltiples fotos y videos · El link se generará automáticamente al guardar · Acceso público por 24 horas</div>
+    </div>`:''}
+  </div>`;
+
+  // Progreso
+  const totalCampos=INSPECCION_SECCIONES.reduce((s,sec)=>s+sec.campos.length,0);
+  const completadosTotal=INSPECCION_SECCIONES.reduce((s,sec)=>s+sec.campos.filter(c=>inspeccionData[c.k]&&String(inspeccionData[c.k]).trim()!=="").length,0);
+  const progreso=Math.round((completadosTotal/totalCampos)*100);
+
+  html+=`<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4 mt-4">
+    <div class="flex justify-between text-xs text-slate-400 mb-2"><span>Progreso del peritaje</span><span class="font-bold text-sky-400">${progreso}% · ${completadosTotal}/${totalCampos}</span></div>
+    <div class="bg-slate-800 rounded-full h-2 overflow-hidden"><div class="bg-gradient-to-r from-sky-500 to-blue-500 h-full transition-all" style="width:${progreso}%"></div></div>
+  </div>
+  <div class="flex gap-2 mb-6">
+    <button onclick="limpiarInspeccion()" class="border border-slate-700 text-slate-400 rounded-lg px-4 py-3 text-sm font-semibold">🗑 Limpiar</button>
+    <button id="btnGuardarInsp" onclick="guardarInspeccion()" class="flex-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg px-4 py-4 text-base font-bold shadow-lg shadow-blue-500/20">
+      💾 Guardar Inspección y Generar PDF
+    </button>
+  </div></div>`;
+  return html;
+}
+
+function actualizarContadorFotos() {
+  const preview=document.getElementById("previewFotos");
+  if(!preview) return;
+  preview.innerHTML=archivosInspeccion.map(f=>{
+    const isImg=f.type.startsWith("image/");
+    return`<div class="bg-slate-800 rounded p-2 text-xs text-center" style="width:80px;overflow:hidden">
+      <div class="text-2xl mb-1">${isImg?"🖼️":"🎥"}</div>
+      <div class="text-slate-400 truncate">${f.name.slice(0,12)}</div>
+    </div>`;
+  }).join("");
+  // Actualizar contador en header de sección
+  render();
+}
+
+function toggleSeccion(id){seccionesAbiertas[id]=!seccionesAbiertas[id];render();}
+
+function limpiarInspeccion(){
+  if(!confirm("¿Limpiar todos los campos?")) return;
+  inspeccionData={};archivosInspeccion=[];
+  seccionesAbiertas={s1:true,s2:false,s3:false,s4:false,s5:false,s6:false};
+  render();
+}
+
+function scoreEstado(valor){
+  if(!valor) return null;
+  const v=valor.toLowerCase();
+  if(v.includes("original")||v.includes("conforme")||v.includes("operativo")||v.includes("excelente")) return 10;
+  if(v.includes("repintado")||v.includes("desgaste normal")||v.includes("leve")) return 7;
+  if(v.includes("desgaste")||v.includes("mantenimiento")) return 5;
+  if(v.includes("requiere")||v.includes("roto")||v.includes("retapizar")) return 4;
+  if(v.includes("crítica")||v.includes("critica")) return 1;
+  return null;
+}
+function emojiPorScore(score){if(score===null)return"⚪ Sin evaluar";if(score>=8.5)return"🟢 Conforme";if(score>=5)return"🟡 Atención";return"🔴 Crítico";}
+function calcularScoreSeccion(seccionId){
+  const sec=INSPECCION_SECCIONES.find(s=>s.id===seccionId);
+  if(!sec) return{score:null,resumen:"⚪ Sin evaluar"};
+  let suma=0,count=0;
+  sec.campos.forEach(c=>{if(["estructural","mecanico","operativo","estetica"].includes(c.t)){const s=scoreEstado(inspeccionData[c.k]);if(s!==null){suma+=s;count++;}}});
+  if(!count) return{score:null,resumen:"⚪ Sin evaluar"};
+  const prom=suma/count;
+  return{score:Math.round(prom*10)/10,resumen:emojiPorScore(prom)};
+}
+function calcularScoreGlobal(){
+  const c=calcularScoreSeccion("s2"),m=calcularScoreSeccion("s3"),t=calcularScoreSeccion("s4"),e=calcularScoreSeccion("s5");
+  const scores=[{val:m.score,peso:0.35},{val:t.score,peso:0.25},{val:c.score,peso:0.25},{val:e.score,peso:0.15}].filter(s=>s.val!==null);
+  if(!scores.length) return null;
+  const pesoTotal=scores.reduce((s,x)=>s+x.peso,0);
+  return Math.round(scores.reduce((s,x)=>s+(x.val*x.peso),0)/pesoTotal*10);
+}
+
+async function guardarInspeccion() {
+  // Validar campos obligatorios
+  const faltantes=[];
+  INSPECCION_SECCIONES.forEach(sec=>sec.campos.forEach(c=>{
+    if(c.req&&(!inspeccionData[c.k]||String(inspeccionData[c.k]).trim()==="")) faltantes.push(c.l);
+  }));
+  if(faltantes.length){toast("⚠️ Faltan campos: "+faltantes.join(", "),"error");return;}
+
+  const btn=document.getElementById("btnGuardarInsp");
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="inline-block animate-spin mr-2">⏳</span> Generando Informe...';}
+  showInspLoader(true);
+
+  // Codificar archivos a base64 (Regla 1: múltiples fotos y videos)
+  let archivosBase64=[];
+  if(archivosInspeccion.length>0){
+    try {
+      archivosBase64=await Promise.all(archivosInspeccion.map(file=>new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=e=>resolve({bytes:e.target.result.split(',')[1],nombre:file.name,tipo:file.type});
+        reader.onerror=reject;
+        reader.readAsDataURL(file);
+      })));
+    } catch(e){ toast("⚠️ Error al procesar fotos","error"); }
+  }
+
+  const scCarroceria=calcularScoreSeccion("s2"),scMotor=calcularScoreSeccion("s3"),
+        scTren=calcularScoreSeccion("s4"),scElectronica=calcularScoreSeccion("s5"),
+        scoreGlobal=calcularScoreGlobal();
+  const limpiarPct=v=>v?String(v).replace(/%/g,"").trim():"";
+  const bateriaVida=[limpiarPct(inspeccionData.bateria_soh)?`SOH: ${limpiarPct(inspeccionData.bateria_soh)}%`:"",inspeccionData.bateria_voltaje?`Voltaje: ${String(inspeccionData.bateria_voltaje).replace(/V/gi,"").trim()}V`:""].filter(Boolean).join(" · ")||"No evaluada";
+  const llantasResumen=[limpiarPct(inspeccionData.s_llantas_del)?`Delanteros: ${limpiarPct(inspeccionData.s_llantas_del)}%`:"",limpiarPct(inspeccionData.s_llantas_post)?`Posteriores: ${limpiarPct(inspeccionData.s_llantas_post)}%`:""].filter(Boolean).join(" · ")||"No evaluado";
+
+  const formData={
+    id_operacion        : inspeccionData.id_operacion||"",
+    lugar               : inspeccionData.lugar||"Trujillo, La Libertad",
+    costo_reparacion    : inspeccionData.costo_reparacion||0,
+    veredicto_final     : inspeccionData.veredicto_final||"Por definir",
+    recomendacion_texto : inspeccionData.recomendacion_texto||"Sin observaciones",
+    marca:inspeccionData.marca||"", placa:inspeccionData.placa||"", modelo:inspeccionData.modelo||"",
+    anio:inspeccionData.anio||"", version:inspeccionData.version||"", km:inspeccionData.km?Number(inspeccionData.km).toLocaleString():"",
+    transmision:inspeccionData.transmision||"", vin:inspeccionData.vin||"",
+    vin_coincide:inspeccionData.vinCoincide||"No evaluado", bateria_vida:bateriaVida,
+    tecnico:inspeccionData.tecnico||(usuarioActual?usuarioActual.nombre:""),
+    score_global:scoreGlobal!==null?scoreGlobal:"—",
+    score_carroceria:scCarroceria.score!==null?scCarroceria.score:"—",
+    score_motor:scMotor.score!==null?scMotor.score:"—",
+    score_tren:scTren.score!==null?scTren.score:"—",
+    score_electronica:scElectronica.score!==null?scElectronica.score:"—",
+    resumen_carroceria:scCarroceria.resumen, resumen_motor:scMotor.resumen,
+    resumen_tren:scTren.resumen, resumen_electronica:scElectronica.resumen,
+    e_chasis:inspeccionData.e_chasis||"No evaluado", e_compactos:inspeccionData.e_compactos||"No evaluado",
+    e_pintura:inspeccionData.e_pintura||"No evaluado", e_cuadre_capot:inspeccionData.e_cuadre_capot||"No evaluado",
+    e_cuadre_puertas:inspeccionData.e_cuadre_puertas||"No evaluado", e_cuadre_maletera:inspeccionData.e_cuadre_maletera||"No evaluado",
+    e_parachoque_d:inspeccionData.e_parachoque_d||"No evaluado", e_parachoque_p:inspeccionData.e_parachoque_p||"No evaluado",
+    e_lunas:inspeccionData.e_lunas||"No evaluado", e_faros:inspeccionData.e_faros||"No evaluado",
+    e_bajos:inspeccionData.e_bajos||"No evaluado", obs_carroceria:inspeccionData.obs_carroceria||"Sin observaciones.",
+    m_encendido:inspeccionData.m_encendido||"No evaluado", m_ralenti:inspeccionData.m_ralenti||"No evaluado",
+    m_fugas_tapa:inspeccionData.m_fugas_tapa||"No evaluado", m_fugas_carter:inspeccionData.m_fugas_carter||"No evaluado",
+    m_refrigerante:inspeccionData.m_refrigerante||"No evaluado", m_aceite:inspeccionData.m_aceite||"No evaluado",
+    m_frenos:inspeccionData.m_frenos||"No evaluado", m_soportes:inspeccionData.m_soportes||"No evaluado",
+    m_fajas:inspeccionData.m_fajas||"No evaluado", m_escape:inspeccionData.m_escape||"No evaluado",
+    obs_motor:inspeccionData.obs_motor||"Sin observaciones.",
+    s_direccion:inspeccionData.s_direccion||"No evaluado", s_amortiguadores:inspeccionData.s_amortiguadores||"No evaluado",
+    s_palieres:inspeccionData.s_palieres||"No evaluado", s_frenos:inspeccionData.s_frenos||"No evaluado",
+    s_caja:inspeccionData.s_caja||"No evaluado", s_llantas:llantasResumen,
+    s_aros:inspeccionData.s_aros||"No evaluado", s_repuesto:inspeccionData.repuesto||"No evaluado",
+    escaneo_uso:inspeccionData.escaneo_uso||"No realizado", escaneo_detalles:inspeccionData.escaneo_detalles||"Ninguno",
+    i_testigos:inspeccionData.i_testigos||"No evaluado", i_airbags:inspeccionData.i_airbags||"No evaluado",
+    i_ac:inspeccionData.i_ac||"No evaluado", i_electrico:inspeccionData.i_electrico||"No evaluado",
+    i_asientos:inspeccionData.asientos||"No evaluado", i_plasticos:inspeccionData.timon_plasticos||"No evaluado",
+    link_fotos:inspeccionData.linkFotos||"",
+    archivos:archivosBase64   // fotos y videos codificados en base64
+  };
+
+  apiFetch('guardarInspeccion', formData)
+    .then(exitoInspeccion)
+    .catch(err=>{
+      showInspLoader(false);
+      if(btn){btn.disabled=false;btn.innerHTML="💾 Guardar Inspección y Generar PDF";}
+      toast("⚠️ Error de conexión: "+err.message,"error");
+    });
+}
+
+function exitoInspeccion(result) {
+  showInspLoader(false);
+  const btn=document.getElementById("btnGuardarInsp");
+  if(btn){btn.disabled=false;btn.innerHTML="💾 Guardar Inspección y Generar PDF";}
+
+  if(!result.exito){toast("⚠️ "+(result.error||"Error al guardar"),"error");return;}
+
+  toast("✅ "+result.idInspeccion+" guardada","success");
+
+  modal("✅ Informe Generado",`
+    <div class="text-center py-4">
+      <div class="text-5xl mb-3">📄</div>
+      <div class="text-sky-400 font-black text-2xl mb-1">${result.idInspeccion}</div>
+      ${result.pdfUrl?`<a href="${result.pdfUrl}" target="_blank" class="inline-block bg-red-500/20 text-red-400 border border-red-500/40 rounded-lg px-5 py-2 text-sm font-bold mb-2 hover:bg-red-500/30">📄 Descargar PDF</a><br>`:""}
+      ${result.linkFotos?`<a href="${result.linkFotos}" target="_blank" class="inline-block bg-blue-500/20 text-sky-400 border border-blue-500/40 rounded-lg px-5 py-2 text-sm font-bold mb-2 hover:bg-blue-500/30">📷 Ver Fotos en Drive</a><br>`:""} 
+      ${result.fechaVencFotos?`<p class="text-slate-500 text-xs mb-3">⏰ Acceso a fotos vence: ${result.fechaVencFotos}</p>`:""}
+      ${result.precioSugerido>0?`<div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 mb-4"><div class="text-emerald-300 text-xs font-bold mb-1">💰 Precio sugerido de compra</div><div class="text-emerald-300 font-black text-2xl">${money(result.precioSugerido)}</div><div class="text-slate-500 text-xs">Basado en tasación ${inspeccionData.id_operacion||''}</div></div>`:""}
+      <button onclick="closeModal();inspeccionData={};archivosInspeccion=[];seccionesAbiertas={s1:true,s2:false,s3:false,s4:false,s5:false,s6:false};render()" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-6 py-3 text-sm font-bold">📋 Nueva inspección</button>
+    </div>`);
+}
+
+function showInspLoader(show){
+  let el=document.getElementById("inspLoader");
+  if(show){
+    if(!el){el=document.createElement("div");el.id="inspLoader";el.className="fixed inset-0 bg-slate-950/90 z-[1500] flex flex-col items-center justify-center";
+      el.innerHTML=`<div class="spinner mb-5"></div><div class="text-sky-400 font-bold text-lg">Generando Informe PDF...</div><div class="text-slate-500 text-xs mt-2">Procesando y guardando en Google Drive</div>`;document.body.appendChild(el);}
+  } else { if(el) el.remove(); }
+}
+
+// ── MODALES ──
+function modal(title,body){document.getElementById("modalRoot").innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-box"><div class="flex justify-between items-center mb-5"><h2 class="text-lg font-bold">${title}</h2><button onclick="closeModal()" class="text-slate-400 text-xl">✕</button></div>${body}</div></div>`;}
+function closeModal(){document.getElementById("modalRoot").innerHTML="";}
+
+function openDetalle(id){
+  const v=vehs.find(x=>String(x.id)===String(id)); if(!v) return;
+  const ct=calcCostoTotal(v),u=calcUtilidad(v),d=calcDiasStock(v);
+  const datos=[["Placa",v.placa],["Transmisión",v.transmision],["Tracción",v.traccion],["Motor",v.motor],["Color",v.color],["KM",parseInt(v.kilometraje).toLocaleString()+" km"],["Prenda",v.prenda],["Estado",v.estado],["F. Compra",fmt(v.fechaCompra)],["F. Publicación",fmt(v.fechaPublicacion)],["F. Venta",fmt(v.fechaVenta)],["Días Stock",d!==null?d+"d":"—"]];
+  const gastos=[["Compra",v.costoCompra],["Comisión",v.comision],["Inspección",v.costoInspeccion],["Notaría",v.gastosNotaria],["Firma",v.gastoFirma],["Retoques",v.retoques],["Combustible",v.gastoCombustible],["Lavado",v.gastoLavado],["Cochera",v.gastosCochera],["Otros",v.otrosGastos]].filter(([,x])=>parseFloat(x)>0);
+  let body=`<div class="grid grid-cols-2 gap-2 mb-4 text-sm">${datos.map(([k,vl])=>`<div class="bg-slate-800 rounded p-2"><div class="text-slate-500 text-xs">${k}</div><div class="font-semibold mt-0.5">${vl||"—"}</div></div>`).join("")}</div>
+  <div class="bg-slate-800 rounded-lg p-3 mb-3 text-sm"><div class="font-bold text-sky-400 mb-2">💰 Desglose</div>${gastos.map(([k,x])=>`<div class="flex justify-between py-1 border-b border-slate-700"><span class="text-slate-400">${k}</span><span>${money(x)}</span></div>`).join("")}<div class="flex justify-between py-2 font-bold border-t-2 border-slate-700 mt-1"><span>Costo Total</span><span>${money(ct)}</span></div><div class="flex justify-between py-1 text-sky-400"><span>Publicación</span><span>${money(v.precioPublicacion)}</span></div>${parseFloat(v.precioVenta)>0?`<div class="flex justify-between py-1 text-green-400"><span>Venta</span><span>${money(v.precioVenta)}</span></div>`:""} ${u?`<div class="flex justify-between py-2 font-bold border-t border-slate-700 mt-1" style="color:${u.val>=0?"#4ade80":"#ef4444"}"><span>Utilidad ${u.tipo==="proyectada"?"Proy.":"Real"}</span><span>${u.val>=0?"+":""}${money(u.val)}</span></div>`:""}</div>
+  ${v.comentarios?`<div class="bg-slate-800 rounded p-3 text-sm mb-3"><div class="text-slate-500 text-xs mb-1">COMENTARIOS</div><div>${v.comentarios}</div></div>`:""}
+  <div class="flex gap-2 justify-end mt-4"><button onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cerrar</button><button onclick="closeModal();openVehModal('${v.id}')" class="bg-blue-600 text-white rounded px-4 py-2 text-sm font-semibold">✏️ Editar</button></div>`;
+  modal(`${v.marca} ${v.modelo} ${v.version} ${v.anio}`,body);
+}
+
+function openCliDetalle(id){
+  const c=clis.find(x=>String(x.id)===String(id)); if(!c) return;
+  const ms=findMatchesForCli(c);
+  const datos=[["Celular",c.celular],["F. Contacto",fmt(c.fechaContacto)],["Último Contacto",fmt(c.fechaUltimoContacto)],["Status",c.status],["Origen",c.origen],["Tipo Pago",c.tipoPago],["Marca",c.marcaBusca],["Modelo",c.modeloBusca||"—"],["Año",`${c.ranioMin}–${c.ranioMax}`],["Presupuesto",money(c.presupuesto)],["Transmisión",c.transmisionDesea],["Carrocería",c.carroceria]];
+  let body=`<div class="grid grid-cols-2 gap-2 mb-4 text-sm">${datos.map(([k,vl])=>`<div class="bg-slate-800 rounded p-2"><div class="text-slate-500 text-xs">${k}</div><div class="font-semibold mt-0.5">${vl}</div></div>`).join("")}</div>
+  ${ms.length>0?`<div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3">${ms.map(m=>`<div class="bg-slate-800/60 rounded p-2 mb-1 text-sm"><div class="flex justify-between flex-wrap"><b>${m.vehiculo.marca} ${m.vehiculo.modelo}</b><span class="text-sky-400">${m.score}/100</span></div><div class="text-slate-500 text-xs">${m.vehiculo.anio} · ${m.vehiculo.placa} · ${money(m.vehiculo.precioPublicacion)}</div></div>`).join("")}</div>`:`<div class="bg-slate-800 rounded p-3 text-sm text-slate-500 text-center">Sin coincidencias en stock.</div>`}
+  <div class="flex gap-2 justify-end mt-4"><button onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cerrar</button></div>`;
+  modal(`👤 ${c.nombre}`,body);
+}
+
+const EMPTY_VEH={marca:"Toyota",modelo:"",version:"",transmision:"Manual",traccion:"4x2",motor:"",anio:2024,kilometraje:0,color:"Blanco",placa:"",soat:"",revTecnica:"",prenda:"No",fechaCompra:"",comision:0,costoInspeccion:0,gastosNotaria:0,gastoFirma:0,costoCompra:0,retoques:0,gastoCombustible:0,gastoLavado:0,gastosCochera:0,otrosGastos:0,precioPublicacion:0,precioVenta:0,fechaPublicacion:"",fechaVenta:"",descripcionGastos:"",comentarios:"",estado:"Disponible"};
+const EMPTY_CLI={nombre:"",fechaContacto:today(),celular:"",marcaBusca:"Indiferente",modeloBusca:"",ranioMin:2018,ranioMax:2025,presupuesto:0,transmisionDesea:"Indiferente",carroceria:"Indiferente",partePago:"No",partePagoDesc:"",status:"Tibio",origen:"WhatsApp",tipoPago:"Por definir",fechaUltimoContacto:today()};
+
+function openVehModal(id){
+  const v=id?{...vehs.find(x=>String(x.id)===String(id))}:{...EMPTY_VEH};
+  const inp=(k,l,t="text",extra="")=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${v[k]??""}" ${extra}></div>`;
+  const sel=(k,l,opts)=>`<div><label>${l}</label><select data-k="${k}">${opts.map(o=>`<option ${v[k]===o?"selected":""}>${o}</option>`).join("")}</select></div>`;
+  const txt=(k,l)=>`<div class="col-span-3"><label>${l}</label><textarea data-k="${k}" rows="2">${v[k]||""}</textarea></div>`;
+  const body=`<form id="vehForm" onsubmit="event.preventDefault();saveVeh('${id||""}')">
+    <div class="section-title">Identificación</div><div class="grid grid-cols-3 gap-3 mb-4">${sel("marca","Marca",MARCAS)}${inp("modelo","Modelo")}${inp("version","Versión")}${sel("transmision","Transmisión",TRANSMISIONES)}${sel("traccion","Tracción",TRACCIONES)}${inp("motor","Motor")}${inp("anio","Año","number","min=1990")}${inp("kilometraje","KM","number","min=0")}${sel("color","Color",COLORES)}${inp("placa","Placa")}${sel("prenda","Prenda",["No","Sí"])}${sel("estado","Estado",ESTADOS)}</div>
+    <div class="section-title">Documentación</div><div class="grid grid-cols-3 gap-3 mb-4">${inp("soat","SOAT vence","date")}${inp("revTecnica","Rev. Técnica vence","date")}${inp("fechaCompra","Fecha Compra","date")}</div>
+    <div class="section-title">Costos y Gastos ($)</div><div class="grid grid-cols-3 gap-3 mb-4">${inp("costoCompra","Compra","number","min=0")}${inp("comision","Comisión","number","min=0")}${inp("costoInspeccion","Inspección","number","min=0")}${inp("gastosNotaria","Notaría","number","min=0")}${inp("gastoFirma","Firma","number","min=0")}${inp("retoques","Retoques","number","min=0")}${inp("gastoCombustible","Combustible","number","min=0")}${inp("gastoLavado","Lavado","number","min=0")}${inp("gastosCochera","Cochera","number","min=0")}${inp("otrosGastos","Otros","number","min=0")}${txt("descripcionGastos","Descripción de gastos")}</div>
+    <div class="section-title">Precios ($)</div><div class="grid grid-cols-2 gap-3 mb-4">${inp("precioPublicacion","Precio Publicación","number","min=0")}${inp("precioVenta","Precio Venta","number","min=0")}${inp("fechaPublicacion","F. Publicación","date")}${inp("fechaVenta","F. Venta","date")}</div>
+    <div class="section-title">Notas</div><div class="grid grid-cols-3 gap-3 mb-4">${txt("comentarios","Comentarios")}</div>
+    <div class="flex gap-2 justify-end"><button type="button" onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cancelar</button><button type="submit" id="btnSaveVeh" class="bg-blue-600 text-white rounded px-4 py-2 text-sm font-semibold">Guardar</button></div>
+  </form>`;
+  modal(id?"Editar Vehículo":"Nuevo Vehículo",body);
+}
+
+function saveVeh(id){
+  const form=document.getElementById("vehForm");
+  const data=id?{...vehs.find(x=>String(x.id)===String(id))}:{...EMPTY_VEH};
+  form.querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k;let v=el.value;if(el.type==="number")v=parseFloat(v)||0;data[k]=v;});
+  if(id) data.id=id;
+  const btn=document.getElementById("btnSaveVeh");
+  if(btn){btn.disabled=true;btn.textContent="Guardando...";}
+  apiFetch('guardarVehiculo',vehToBackend(data))
+    .then(res=>{if(res.exito){closeModal();recargarApp();}else{if(btn){btn.disabled=false;btn.textContent="Guardar";}errorGuardar(res);}})
+    .catch(err=>{if(btn){btn.disabled=false;btn.textContent="Guardar";}errorGuardar(err);});
+}
+
+function openCliModal(id){
+  const c=id?{...clis.find(x=>String(x.id)===String(id))}:{...EMPTY_CLI};
+  const inp=(k,l,t="text",extra="")=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${c[k]??""}" ${extra}></div>`;
+  const sel=(k,l,opts)=>`<div><label>${l}</label><select data-k="${k}">${opts.map(o=>`<option ${c[k]===o?"selected":""}>${o}</option>`).join("")}</select></div>`;
+  const body=`<form id="cliForm" onsubmit="event.preventDefault();saveCli('${id||""}')">
+    <div class="section-title">Datos del Cliente</div><div class="grid grid-cols-3 gap-3 mb-4">${inp("nombre","Nombre *")}${inp("celular","Celular")}${inp("fechaContacto","F. Contacto","date")}${inp("fechaUltimoContacto","Último Contacto","date")}${sel("status","Status",STATUS_CRM)}${sel("origen","Origen",ORIGENES)}${sel("tipoPago","Tipo Pago",PAGOS)}</div>
+    <div class="section-title">Búsqueda</div><div class="grid grid-cols-3 gap-3 mb-4">${sel("marcaBusca","Marca",["Indiferente",...MARCAS])}${inp("modeloBusca","Modelo")}${inp("ranioMin","Año mín","number")}${inp("ranioMax","Año máx","number")}${inp("presupuesto","Presupuesto $","number","min=0")}${sel("transmisionDesea","Transmisión",["Indiferente","Manual","Automático","CVT"])}${sel("carroceria","Carrocería",CARROCERIAS)}${sel("partePago","Parte pago",["No","Sí"])}${inp("partePagoDesc","Desc. parte pago")}</div>
+    <div class="flex gap-2 justify-end"><button type="button" onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cancelar</button><button type="submit" id="btnSaveCli" class="bg-blue-600 text-white rounded px-4 py-2 text-sm font-semibold">Guardar</button></div>
+  </form>`;
+  modal(id?"Editar Cliente":"Nuevo Cliente",body);
+}
+
+function saveCli(id){
+  const form=document.getElementById("cliForm");
+  const data=id?{...clis.find(x=>String(x.id)===String(id))}:{...EMPTY_CLI};
+  form.querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k;let v=el.value;if(el.type==="number")v=parseFloat(v)||0;data[k]=v;});
+  const btn=document.getElementById("btnSaveCli");
+  if(btn){btn.disabled=true;btn.textContent="Guardando...";}
+  apiFetch('guardarCliente',{
+    Nombre:data.nombre,Fecha_Contacto:data.fechaContacto,Celular:data.celular,
+    Marca_Busca:data.marcaBusca,Modelo_Busca:data.modeloBusca,Anio_Min:data.ranioMin,Anio_Max:data.ranioMax,
+    Presupuesto:data.presupuesto,Transmision_Desea:data.transmisionDesea,Carroceria:data.carroceria,
+    Parte_Pago:data.partePago,Parte_Pago_Desc:data.partePagoDesc,Status:data.status,Origen:data.origen,
+    Tipo_Pago:data.tipoPago,Fecha_Ultimo_Contacto:data.fechaUltimoContacto
+  }).then(res=>{if(res.exito){closeModal();recargarApp();}else{if(btn){btn.disabled=false;btn.textContent="Guardar";}errorGuardar(res);}})
+    .catch(err=>{if(btn){btn.disabled=false;btn.textContent="Guardar";}errorGuardar(err);});
+}
+
+// ── LOGIN / RBAC ──
+const USUARIOS = {
+  "1234"   : { rol:"tecnico", nombre:"Técnico",       color:"#f59e0b", tabInicial:"inspeccion" },
+  "admin99": { rol:"admin",   nombre:"Administrador", color:"#22c55e", tabInicial:"dashboard"  }
+};
+let usuarioActual = null;
+
+function intentarLogin(){
+  const pin=document.getElementById("pinInput").value.trim();
+  const err=document.getElementById("loginError");
+  const usuario=USUARIOS[pin];
+  if(!usuario){err.textContent="PIN incorrecto.";err.classList.remove("hidden");document.getElementById("pinInput").value="";return;}
+  usuarioActual=usuario;
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("appWrapper").classList.remove("hidden");
+  aplicarRBAC();
+  currentTab=usuario.tabInicial;
+  if(usuario.rol==="admin") sincronizar();
+  else { cargando=false; showLoader(false); render(); }
+}
+
+function aplicarRBAC(){
+  if(!usuarioActual) return;
+  const esAdmin=usuarioActual.rol==="admin";
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    const role=btn.dataset.role;
+    btn.classList.toggle("hidden",role==="admin"&&!esAdmin);
+  });
+  document.getElementById("btnSync").style.display=esAdmin?"":"none";
+  const b=document.getElementById("userBadge");
+  b.textContent=`${usuarioActual.rol==="admin"?"👑":"🔧"} ${usuarioActual.nombre}`;
+  b.style.background=usuarioActual.color+"22"; b.style.color=usuarioActual.color;
+  b.style.border=`1px solid ${usuarioActual.color}55`; b.classList.remove("hidden");
+}
+
+function cerrarSesion(){
+  if(!confirm("¿Cerrar sesión?")) return;
+  usuarioActual=null; vehs=[]; clis=[]; inspeccionData={}; archivosInspeccion=[];
+  document.getElementById("appWrapper").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("pinInput").value="";
+  document.getElementById("loginError").classList.add("hidden");
+  setTimeout(()=>document.getElementById("pinInput")?.focus(),100);
+}
+
+document.querySelectorAll(".tab-btn").forEach(b=>{
+  b.addEventListener("click",()=>{currentTab=b.dataset.tab;render();});
+});
+setTimeout(()=>document.getElementById("pinInput")?.focus(),100);
+</script>
+</body>
+</html>
