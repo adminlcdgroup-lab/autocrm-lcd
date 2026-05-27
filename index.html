@@ -361,10 +361,10 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwQl-hTnYJfLVG
   function createChain() {
     const ctx = { onSuccess: null, onFailure: null };
     const chain = {
-      withSuccessHandler: function(fn) { ctx.onSuccess = fn; return chain; },
-      withFailureHandler: function(fn) { ctx.onFailure = fn; return chain; }
+      withSuccessHandler: function(fn) { ctx.onSuccess = fn; return proxy; },
+      withFailureHandler: function(fn) { ctx.onFailure = fn; return proxy; }
     };
-    return new Proxy(chain, {
+    const proxy = new Proxy(chain, {
       get: function(target, prop) {
         if (prop in target) return target[prop];
         if (typeof prop === 'symbol') return undefined;
@@ -373,6 +373,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwQl-hTnYJfLVG
         };
       }
     });
+    return proxy;
   }
 
   window.google = {
