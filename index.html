@@ -135,19 +135,19 @@
   }
   .flyer-photo-slot:hover { border-color: #22B14C; }
   .flyer-photo-slot input[type="file"] {
-    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; z-index: 5;
   }
-  .flyer-photo-slot-label { font-size: 10px; color: #64748b; text-align: center; pointer-events: none; padding: 6px; }
-  .flyer-photo-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .flyer-photo-slot-label { font-size: 10px; color: #64748b; text-align: center; pointer-events: none; padding: 6px; z-index: 1; position: relative; }
+  .flyer-photo-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
   .flyer-photo-from-drive {
     position: absolute; top: 4px; left: 4px; background: rgba(34,177,76,.9);
     color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px;
-    font-weight: 700; letter-spacing: .5px;
+    font-weight: 700; letter-spacing: .5px; z-index: 6; pointer-events: none;
   }
   .flyer-photo-remove {
     position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.7);
     border: none; color: white; border-radius: 50%; width: 22px; height: 22px;
-    font-size: 12px; cursor: pointer; display: none; line-height: 1;
+    font-size: 12px; cursor: pointer; display: none; line-height: 1; z-index: 10;
   }
   .flyer-photo-slot:hover .flyer-photo-remove { display: flex; align-items: center; justify-content: center; }
 
@@ -216,80 +216,129 @@
     color: rgba(255,255,255,.25); font-size: 13px; font-weight: 500;
   }
   #flyerCanvas .fl-gallery-thumb .gt-empty svg { fill: rgba(255,255,255,.15); }
-  #flyerCanvas .fl-gallery-thumb .gt-label {
-    position: absolute; bottom: 8px; left: 10px;
-    background: rgba(34,177,76,.9); color: #fff;
-    font-size: 10px; font-weight: 700; letter-spacing: 1px;
-    padding: 2px 8px; border-radius: 4px; text-transform: uppercase;
-  }
 
-  /* INFO 1260-1700 (bajada para dar lugar a galería) */
+  /* INFO entre galería (1250) y footer (1680) — más espacio */
   #flyerCanvas .fl-info {
-    position: absolute; top: 1260px; left: 0; right: 0; bottom: 220px;
+    position: absolute; top: 1280px; left: 0; right: 0; bottom: 240px;
     padding: 0 60px; z-index: 20;
-    display: flex; flex-direction: column;
+    display: flex; flex-direction: column; justify-content: center;
   }
-  #flyerCanvas .fl-info-row1 { display: flex; align-items: baseline; gap: 16px; }
+  /* Fila superior: chip de año + marca */
+  #flyerCanvas .fl-info-row1 {
+    display: flex; align-items: center; gap: 18px; margin-bottom: 6px;
+  }
+  #flyerCanvas .fl-anio {
+    display: inline-block;
+    background: linear-gradient(135deg, #22B14C 0%, #3FCB6A 100%);
+    color: #0a0a0a;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 24px; font-weight: 900; letter-spacing: 2px;
+    box-shadow: 0 4px 14px rgba(34,177,76,.35);
+    line-height: 1;
+  }
   #flyerCanvas .fl-marca {
-    font-size: 26px; font-weight: 700; color: #9ca3af;
-    letter-spacing: 6px; text-transform: uppercase;
+    font-size: 28px; font-weight: 700; color: #9ca3af;
+    letter-spacing: 8px; text-transform: uppercase;
   }
-  #flyerCanvas .fl-anio { font-size: 30px; font-weight: 900; color: #22B14C; margin-left: auto; }
   #flyerCanvas .fl-modelo {
-    font-size: 96px; font-weight: 900; color: #fff;
-    line-height: .9; letter-spacing: -3px;
-    text-transform: uppercase; margin-top: 4px;
+    font-size: 92px; font-weight: 900; color: #fff;
+    line-height: .92; letter-spacing: -2px;
+    text-transform: uppercase; margin-top: 12px;
   }
   #flyerCanvas .fl-version {
-    font-size: 24px; font-weight: 600; color: #9ca3af;
-    letter-spacing: 2px; text-transform: uppercase; margin-top: 8px;
+    font-size: 28px; font-weight: 700; color: #3FCB6A;
+    letter-spacing: 4px; text-transform: uppercase; margin-top: 8px;
   }
-  #flyerCanvas .fl-precio-wrap { display: flex; align-items: baseline; gap: 18px; margin-top: 22px; }
-  #flyerCanvas .fl-precio-currency { font-size: 34px; font-weight: 800; color: #22B14C; }
+  #flyerCanvas .fl-precio-wrap { display: flex; align-items: baseline; gap: 20px; margin-top: 24px; }
+  #flyerCanvas .fl-precio-currency { font-size: 38px; font-weight: 800; color: #22B14C; }
   #flyerCanvas .fl-precio {
-    font-size: 86px; font-weight: 900; color: #fff;
+    font-size: 88px; font-weight: 900; color: #fff;
     line-height: 1; letter-spacing: -2px; outline: none;
     border-bottom: 3px dashed transparent; min-width: 200px;
   }
   #flyerCanvas .fl-precio:focus { border-bottom-color: rgba(34,177,76,.5); }
-  #flyerCanvas .fl-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+
+  /* Trust badge */
+  #flyerCanvas .fl-trust-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 18px; border-radius: 999px;
+    background: rgba(34,177,76,.14);
+    border: 1.5px solid rgba(34,177,76,.55);
+    color: #3FCB6A;
+    font-size: 16px; font-weight: 800; letter-spacing: 1.8px;
+    text-transform: uppercase;
+    margin-top: 18px; align-self: flex-start;
+  }
+  #flyerCanvas .fl-trust-badge svg { width: 16px; height: 16px; fill: #22B14C; }
+
+  #flyerCanvas .fl-tags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
   #flyerCanvas .fl-tag {
-    background: rgba(34,177,76,.12); border: 1px solid rgba(34,177,76,.4);
-    color: #fff; padding: 10px 18px; border-radius: 999px;
-    font-size: 17px; font-weight: 700; letter-spacing: 1px;
+    background: rgba(34,177,76,.15); border: 1px solid rgba(34,177,76,.5);
+    color: #fff; padding: 12px 22px; border-radius: 999px;
+    font-size: 19px; font-weight: 700; letter-spacing: 1.2px;
     text-transform: uppercase; outline: none;
   }
   #flyerCanvas .fl-footer {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 220px;
+    position: absolute; bottom: 0; left: 0; right: 0; height: 240px;
     background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
-    z-index: 25; padding: 0 60px;
-    display: flex; flex-direction: column; justify-content: center; gap: 16px;
+    z-index: 25; padding: 30px 50px 24px;
+    display: flex; flex-direction: column; gap: 14px;
   }
   #flyerCanvas .fl-footer::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
     background: linear-gradient(to right, #22B14C, #3FCB6A, #22B14C);
   }
-  #flyerCanvas .fl-contact-row { display: flex; align-items: center; gap: 18px; }
-  #flyerCanvas .fl-contact-row .fl-contact-icon {
-    width: 56px; height: 56px; border-radius: 50%;
-    background: rgba(34,177,76,.18);
-    border: 1.5px solid rgba(34,177,76,.5);
+
+  /* CTA grande de WhatsApp */
+  #flyerCanvas .fl-wa-cta {
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    border-radius: 22px;
+    padding: 18px 28px;
+    display: flex; align-items: center; gap: 22px;
+    box-shadow: 0 10px 35px rgba(37,211,102,.45);
+    flex: 1;
+  }
+  #flyerCanvas .fl-wa-cta .wa-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(255,255,255,.18);
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  #flyerCanvas .fl-contact-row .fl-contact-icon svg { width: 28px; height: 28px; fill: #22B14C; }
-  #flyerCanvas .fl-contact-row .fl-contact-text { display: flex; flex-direction: column; }
-  #flyerCanvas .fl-contact-row .fl-contact-text .ct-label {
-    font-size: 12px; color: #9ca3af; font-weight: 600;
+  #flyerCanvas .fl-wa-cta .wa-icon svg { width: 38px; height: 38px; fill: #fff; }
+  #flyerCanvas .fl-wa-cta .wa-text { display: flex; flex-direction: column; line-height: 1; }
+  #flyerCanvas .fl-wa-cta .wa-label {
+    font-size: 13px; color: rgba(255,255,255,.85);
+    font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  #flyerCanvas .fl-wa-cta .wa-number {
+    font-size: 34px; color: #fff; font-weight: 900; letter-spacing: 1px;
+  }
+  #flyerCanvas .fl-wa-cta .wa-brand {
+    margin-left: auto; text-align: right;
+  }
+  #flyerCanvas .fl-wa-cta .wa-brand .b1 {
+    font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 1px;
+  }
+  #flyerCanvas .fl-wa-cta .wa-brand .b2 {
+    font-size: 10px; font-weight: 700; color: rgba(255,255,255,.8); letter-spacing: 3px;
+  }
+
+  /* Fila inferior con Instagram + ref code */
+  #flyerCanvas .fl-footer-bottom {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+  }
+  #flyerCanvas .fl-footer-bottom svg { width: 16px; height: 16px; fill: #9ca3af; }
+  #flyerCanvas .fl-footer-bottom .ft-handle {
+    font-size: 16px; color: #d1d5db; font-weight: 700; letter-spacing: .5px;
+  }
+  #flyerCanvas .fl-footer-bottom .ft-sep {
+    color: #4b5563; font-size: 14px;
+  }
+  #flyerCanvas .fl-footer-bottom .ft-ref {
+    font-size: 12px; color: #6b7280; font-weight: 600;
     letter-spacing: 2px; text-transform: uppercase;
   }
-  #flyerCanvas .fl-contact-row .fl-contact-text .ct-value {
-    font-size: 26px; color: #fff; font-weight: 800; letter-spacing: .5px;
-  }
-  #flyerCanvas .fl-brand-corner {
-    position: absolute; right: 60px; top: 50%; transform: translateY(-50%); text-align: right;
-  }
-  #flyerCanvas .fl-brand-corner .b1 { font-size: 28px; font-weight: 900; color: #fff; letter-spacing: 1.5px; }
-  #flyerCanvas .fl-brand-corner .b2 { font-size: 11px; font-weight: 700; color: #22B14C; letter-spacing: 4px; }
   #flyerCanvas [contenteditable="true"]:hover {
     background: rgba(34,177,76,.06);
     outline: 1px dashed rgba(34,177,76,.4);
@@ -388,9 +437,9 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwQl-hTnYJfLVG
 
 <script>
 const FLYER_DEFAULT_PHONE = "+51 999 999 999";
-const FLYER_DEFAULT_EMAIL = "contacto@lcdgroup.com";
+const FLYER_DEFAULT_INSTAGRAM = "@lcdgroup.automotriz";
 
-const FLYER_PHOTO_LABELS = ['📍 Principal', '🪑 Interior', '🎨 Detalle', '🚗 Trasera'];
+const FLYER_PHOTO_LABELS = ['📍 Foto Principal', '🖼 Foto 2', '🖼 Foto 3', '🖼 Foto 4'];
 
 const FLYER_STATE = {
   vehSeleccionado: null,
@@ -401,7 +450,8 @@ const FLYER_STATE = {
   fotos: ["", "", "", ""],
   fotosBytes: ["", "", "", ""],
   fotosDesdeDrive: [false, false, false, false],
-  phone: FLYER_DEFAULT_PHONE, email: FLYER_DEFAULT_EMAIL,
+  phone: FLYER_DEFAULT_PHONE,
+  instagram: FLYER_DEFAULT_INSTAGRAM,
   logoDataUri: ""
 };
 
@@ -465,7 +515,7 @@ function renderFlyer() {
           <div class="flyer-section-title">📞 Contacto</div>
           <div class="space-y-2">
             <div><label class="flyer-input-label">WhatsApp</label><input type="text" value="${FLYER_STATE.phone}" oninput="FLYER_STATE.phone=this.value;flyerUpdate()"></div>
-            <div><label class="flyer-input-label">Correo</label><input type="text" value="${FLYER_STATE.email}" oninput="FLYER_STATE.email=this.value;flyerUpdate()"></div>
+            <div><label class="flyer-input-label">Instagram</label><input type="text" value="${FLYER_STATE.instagram}" oninput="FLYER_STATE.instagram=this.value;flyerUpdate()" placeholder="@lcdgroup.automotriz"></div>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
@@ -597,7 +647,7 @@ function flyerPhotoSlotHTML(i) {
     : 'aspect-ratio:1/1;min-height:90px;';
 
   return `
-    <div class="flyer-photo-slot" style="${style}" onclick="document.getElementById('flyerPhotoInput${i}').click()">
+    <div class="flyer-photo-slot" style="${style}">
       <input type="file" id="flyerPhotoInput${i}" accept="image/*" onchange="flyerHandlePhotoUpload(event, ${i})">
       ${url
         ? `<img src="${url}" />${fromDrive?'<span class="flyer-photo-from-drive">DRIVE</span>':''}<button class="flyer-photo-remove" onclick="flyerRemovePhoto(event, ${i})">✕</button>`
@@ -717,16 +767,14 @@ function flyerCanvasHTML() {
     ? `<img src="${s.logoDataUri}" crossorigin="anonymous" />`
     : `<div style="height:80px;display:flex;align-items:center;padding:0 20px;background:rgba(255,255,255,.05);border:1px dashed rgba(34,177,76,.4);border-radius:8px;"><span style="font-size:26px;font-weight:900;color:#fff;letter-spacing:1px;">LCD GROUP</span></div>`;
 
-  const galLabels = ['INTERIOR', 'DETALLE', 'TRASERA'];
-
-  // Galería (índices 1, 2, 3) — usa background-image para evitar deformación en html2canvas
-  const galleryHTML = [1, 2, 3].map(function(i, idx) {
+  // Galería (índices 1, 2, 3) — sin etiquetas, el usuario decide qué subir
+  const galleryHTML = [1, 2, 3].map(function(i) {
     const url = s.fotos[i];
     return `
       <div class="fl-gallery-thumb">
         ${url
-          ? `<div style="position:absolute;inset:0;background-image:url('${url}');background-size:cover;background-position:center;background-repeat:no-repeat;"></div><span class="gt-label">${galLabels[idx]}</span>`
-          : `<div class="gt-empty"><svg width="36" height="36" viewBox="0 0 24 24"><path d="M19,7H16.83L15.59,5.65C15.22,5.24 14.68,5 14.12,5H9.88C9.32,5 8.78,5.24 8.4,5.65L7.17,7H5A2,2 0 0,0 3,9V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V9A2,2 0 0,0 19,7M12,18A4,4 0 0,1 8,14A4,4 0 0,1 12,10A4,4 0 0,1 16,14A4,4 0 0,1 12,18Z"/></svg><span>${galLabels[idx]}</span></div>`}
+          ? `<div style="position:absolute;inset:0;background-image:url('${url}');background-size:cover;background-position:center;background-repeat:no-repeat;"></div>`
+          : `<div class="gt-empty"><svg width="36" height="36" viewBox="0 0 24 24"><path d="M19,7H16.83L15.59,5.65C15.22,5.24 14.68,5 14.12,5H9.88C9.32,5 8.78,5.24 8.4,5.65L7.17,7H5A2,2 0 0,0 3,9V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V9A2,2 0 0,0 19,7M12,18A4,4 0 0,1 8,14A4,4 0 0,1 12,10A4,4 0 0,1 16,14A4,4 0 0,1 12,18Z"/></svg></div>`}
       </div>`;
   }).join('');
 
@@ -745,14 +793,18 @@ function flyerCanvasHTML() {
     <div class="fl-gallery-strip">${galleryHTML}</div>
     <div class="fl-info">
       <div class="fl-info-row1">
+        <span class="fl-anio">${s.anio || '----'}</span>
         <span class="fl-marca">${s.marca || 'MARCA'}</span>
-        <span class="fl-anio">${s.anio || '—'}</span>
       </div>
       <div class="fl-modelo">${s.modelo || 'MODELO'}</div>
       <div class="fl-version">${s.version || 'VERSIÓN'}</div>
       <div class="fl-precio-wrap">
         <span class="fl-precio-currency">USD</span>
         <span id="fl-precio" class="fl-precio" contenteditable="true" spellcheck="false">${flyerFormatPrecio(s.precio)}</span>
+      </div>
+      <div class="fl-trust-badge">
+        <svg viewBox="0 0 24 24"><path d="M12,2L4,5V11.09C4,16.14 7.41,20.85 12,22C16.59,20.85 20,16.14 20,11.09V5L12,2M10.94,15.54L7.4,12L8.81,10.59L10.94,12.71L15.18,8.47L16.59,9.88L10.94,15.54Z"/></svg>
+        DOCUMENTACIÓN AL DÍA
       </div>
       <div class="fl-tags">
         ${s.km ? `<span class="fl-tag">🛣 ${s.km}</span>` : ''}
@@ -762,23 +814,21 @@ function flyerCanvasHTML() {
       </div>
     </div>
     <div class="fl-footer">
-      <div class="fl-contact-row">
-        <div class="fl-contact-icon"><svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg></div>
-        <div class="fl-contact-text">
-          <span class="ct-label">WhatsApp</span>
-          <span class="ct-value">${s.phone || FLYER_DEFAULT_PHONE}</span>
+      <div class="fl-wa-cta">
+        <div class="wa-icon"><svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg></div>
+        <div class="wa-text">
+          <span class="wa-label">📱 ESCRÍBENOS</span>
+          <span class="wa-number">${s.phone || FLYER_DEFAULT_PHONE}</span>
+        </div>
+        <div class="wa-brand">
+          <div class="b1">LCD GROUP</div>
+          <div class="b2">AUTOMOTRIZ</div>
         </div>
       </div>
-      <div class="fl-contact-row">
-        <div class="fl-contact-icon"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
-        <div class="fl-contact-text">
-          <span class="ct-label">Correo</span>
-          <span class="ct-value">${s.email || FLYER_DEFAULT_EMAIL}</span>
-        </div>
-      </div>
-      <div class="fl-brand-corner">
-        <div class="b1">LCD GROUP</div>
-        <div class="b2">AUTOMOTRIZ</div>
+      <div class="fl-footer-bottom">
+        <svg viewBox="0 0 24 24"><path d="M7.8,2H16.2C19.4,2 22,4.6 22,7.8V16.2A5.8,5.8 0 0,1 16.2,22H7.8C4.6,22 2,19.4 2,16.2V7.8A5.8,5.8 0 0,1 7.8,2M7.6,4A3.6,3.6 0 0,0 4,7.6V16.4C4,18.39 5.61,20 7.6,20H16.4A3.6,3.6 0 0,0 20,16.4V7.6C20,5.61 18.39,4 16.4,4H7.6M17.25,5.5A1.25,1.25 0 0,1 18.5,6.75A1.25,1.25 0 0,1 17.25,8A1.25,1.25 0 0,1 16,6.75A1.25,1.25 0 0,1 17.25,5.5M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9Z"/></svg>
+        <span class="ft-handle">${s.instagram || FLYER_DEFAULT_INSTAGRAM}</span>
+        ${s.placa ? `<span class="ft-sep">·</span><span class="ft-ref">REF: ${s.placa}</span>` : ''}
       </div>
     </div>
   </div>`;
