@@ -87,6 +87,7 @@
     <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="inspeccion" data-role="all">📋 Inspección</button>
     <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="flyer" data-role="admin">🎨 Flyer</button>
     <div class="ml-auto flex items-center gap-2">
+      <span id="sessionBadge" class="hidden text-[10px] text-slate-500 font-mono px-2 py-1 rounded border border-slate-800" title="ID de sesión · minutos activos"></span>
       <span id="userBadge" class="hidden text-xs px-3 py-1 rounded-full"></span>
       <button onclick="sincronizar()" id="btnSync" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1" title="Recargar desde Google Sheets">🔄 Sincronizar</button>
       <div id="alertBadge" class="hidden bg-red-500/20 border border-red-500 rounded-full px-3 py-1 text-red-500 text-xs font-bold cursor-pointer"></div>
@@ -669,6 +670,19 @@ function flyerPhotoSlotHTML(i) {
 function flyerHandlePhotoUpload(event, i) {
   const file = event.target.files[0];
   if (!file) return;
+  // Validar tamaño máximo: 8 MB
+  const MAX_SIZE = 8 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    toast(`⚠️ La foto pesa ${(file.size/1024/1024).toFixed(1)} MB · máximo 8 MB`, "error");
+    event.target.value = '';
+    return;
+  }
+  // Validar tipo
+  if (!file.type.startsWith('image/')) {
+    toast('⚠️ Solo se permiten imágenes', "error");
+    event.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = function(e) {
     FLYER_STATE.fotos[i] = e.target.result;
@@ -1814,7 +1828,12 @@ function guardarCotizacion() {
   enviarTasacion(r, "Cotización");
 }
 
+let _tasacionEnVuelo = false;
 function enviarTasacion(r, estado) {
+  if (_tasacionEnVuelo) return;  // Evita doble-click
+  _tasacionEnVuelo = true;
+  document.querySelectorAll('[onclick*="aprobarCompra"], [onclick*="guardarCotizacion"]').forEach(b => b.disabled = true);
+
   const payload = {
     placa: tasadoraData.placa,
     marca: tasadoraData.marca,
@@ -1833,21 +1852,28 @@ function enviarTasacion(r, estado) {
     usuario: usuarioActual ? usuarioActual.nombre : ""
   };
 
+  const unlock = () => {
+    _tasacionEnVuelo = false;
+    document.querySelectorAll('[onclick*="aprobarCompra"], [onclick*="guardarCotizacion"]').forEach(b => b.disabled = false);
+  };
+
   if(typeof google !== "undefined" && google.script && google.script.run) {
     toast("Guardando en Google Sheets...", "success");
     google.script.run
       .withSuccessHandler(result => {
+        unlock();
         toast(`✅ ${estado} guardada: ${tasadoraData.placa}`, "success");
         tasadoraData = {placa:"",marca:"",modelo:"",version:"",anio:"",valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};
         render();
       })
       .withFailureHandler(err => {
+        unlock();
         toast("⚠️ Error: " + (err.message || err), "error");
       })
       .guardarTasacion(payload);
   } else {
+    unlock();
     toast("⚠️ Modo preview", "error");
-    console.log("Tasación a guardar:", payload);
   }
 }
 
@@ -1924,7 +1950,7 @@ function renderCotizaciones() {
               <td class="font-bold ${(Number(c.Precio_Maximo_Oferta)||0)>0?'text-emerald-300':'text-red-400'}">${money(c.Precio_Maximo_Oferta)}</td>
               <td>${c.Estado==='Aprobada'?'<span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/50">✅ Aprobada</span>':'<span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/50">⏳ Cotización</span>'}</td>
               <td class="text-slate-500 text-xs">${c.Usuario||"—"}</td>
-              <td><button onclick="eliminarCotizacion(${c._rowIndex},'${c.Placa}')" class="text-red-400 hover:text-red-300 text-sm" title="Eliminar">🗑</button></td>
+              <td><button onclick="eliminarCotizacion('${c.ID_Operacion || c._rowIndex}','${c.Placa}')" class="text-red-400 hover:text-red-300 text-sm" title="Eliminar">🗑</button></td>
             </tr>`).join("")}
           </tbody>
         </table>
@@ -1959,16 +1985,17 @@ function cargarCotizaciones() {
     .listarOperaciones();
 }
 
-function eliminarCotizacion(rowIndex, placa) {
+function eliminarCotizacion(idOrRow, placa) {
   if(!confirm(`¿Eliminar la cotización de ${placa}?`)) return;
   if(typeof google !== "undefined" && google.script && google.script.run) {
     google.script.run
-      .withSuccessHandler(()=>{
+      .withSuccessHandler(r => {
+        if (r && r.exito === false) { toast("⚠️ " + r.error, "error"); return; }
         toast("✅ Cotización eliminada", "success");
         cargarCotizaciones();
       })
       .withFailureHandler(err=>toast("⚠️ Error: "+err, "error"))
-      .eliminarTasacion(rowIndex);
+      .eliminarTasacion(idOrRow);
   }
 }
 
@@ -2265,6 +2292,14 @@ function guardarInspeccion() {
   if(faltantes.length > 0) {
     toast("⚠️ Faltan campos obligatorios: " + faltantes.join(", "), "error");
     return;
+  }
+
+  // Aviso si inspección está muy incompleta (<50%)
+  const _totalCampos = INSPECCION_SECCIONES.reduce((s,sec)=>s+sec.campos.length, 0);
+  const _llenados = INSPECCION_SECCIONES.reduce((s,sec) => s + sec.campos.filter(c=>inspeccionData[c.k]&&String(inspeccionData[c.k]).trim()!=="").length, 0);
+  const _porcentaje = Math.round((_llenados/_totalCampos)*100);
+  if (_porcentaje < 50) {
+    if (!confirm(`⚠️ Solo has llenado ${_porcentaje}% de los campos (${_llenados}/${_totalCampos}). ¿Generar el PDF igual?`)) return;
   }
 
   const numeroInforme = String(Date.now()).slice(-6);
@@ -2668,6 +2703,137 @@ const USUARIOS = {
 
 let usuarioActual = null;
 
+// ====================================================
+// SESSION MANAGER — ID + idle timeout + auto-logout
+// ====================================================
+const SESSION_IDLE_MINUTES = 20;          // tiempo total de inactividad
+const SESSION_WARNING_SECONDS = 30;       // aviso antes del cierre auto
+let sessionId = null;
+let idleTimer = null;
+let warningTimer = null;
+let countdownInterval = null;
+let sessionStartTime = null;
+
+function generarSessionId() {
+  const fecha = new Date();
+  const yyyymmdd = fecha.getFullYear().toString().slice(2) +
+                   String(fecha.getMonth()+1).padStart(2,'0') +
+                   String(fecha.getDate()).padStart(2,'0');
+  const random = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `SES-${yyyymmdd}-${random}`;
+}
+
+function iniciarSession() {
+  sessionId = generarSessionId();
+  sessionStartTime = Date.now();
+  // Eventos que resetean el timer de inactividad
+  ['mousemove','keydown','touchstart','click','scroll'].forEach(ev =>
+    document.addEventListener(ev, onUserActivity, { passive: true })
+  );
+  // Detectar cambio de tab/ventana oculta para no contar tiempo en background
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  resetIdleTimer();
+  setInterval(updateSessionBadge, 60000);
+}
+
+let _lastHiddenAt = null;
+function onVisibilityChange() {
+  if (!usuarioActual) return;
+  if (document.hidden) {
+    // Pausar timers cuando la tab se oculta
+    _lastHiddenAt = Date.now();
+    if (idleTimer) clearTimeout(idleTimer);
+    if (warningTimer) clearTimeout(warningTimer);
+  } else if (_lastHiddenAt) {
+    // Al volver, verificar cuánto pasó
+    const elapsedMs = Date.now() - _lastHiddenAt;
+    const idleMs = SESSION_IDLE_MINUTES * 60 * 1000;
+    _lastHiddenAt = null;
+    if (elapsedMs >= idleMs) {
+      autoCerrarSesion();
+    } else {
+      resetIdleTimer();
+    }
+  }
+}
+
+function onUserActivity() {
+  // Si el modal de advertencia está visible, ciérralo
+  const w = document.getElementById('idleWarning');
+  if (w) {
+    w.remove();
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  }
+  resetIdleTimer();
+}
+
+function resetIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+  if (warningTimer) clearTimeout(warningTimer);
+  if (!usuarioActual) return;
+  const idleMs = SESSION_IDLE_MINUTES * 60 * 1000;
+  const warnMs = SESSION_WARNING_SECONDS * 1000;
+  warningTimer = setTimeout(mostrarAvisoInactividad, idleMs - warnMs);
+  idleTimer = setTimeout(autoCerrarSesion, idleMs);
+}
+
+function mostrarAvisoInactividad() {
+  let segundos = SESSION_WARNING_SECONDS;
+  const div = document.createElement('div');
+  div.id = 'idleWarning';
+  div.className = 'fixed inset-0 bg-slate-950/95 z-[5000] flex items-center justify-center p-4';
+  div.innerHTML = `
+    <div class="bg-slate-900 border-2 border-amber-500 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl shadow-amber-500/30">
+      <div class="text-6xl mb-3">⏱</div>
+      <h2 class="text-xl font-extrabold text-amber-400 mb-1">Sesión por cerrar</h2>
+      <p class="text-slate-400 text-xs mb-4">Detectamos inactividad. Por seguridad cerraremos tu sesión en:</p>
+      <div id="idleCountdown" class="text-6xl font-black text-amber-400 mb-4">${segundos}</div>
+      <button onclick="onUserActivity()" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg py-3 text-sm font-bold">
+        SEGUIR USANDO
+      </button>
+      <div class="text-slate-600 text-[10px] mt-3">Cualquier clic o tecla mantiene la sesión abierta</div>
+    </div>
+  `;
+  document.body.appendChild(div);
+  countdownInterval = setInterval(() => {
+    segundos--;
+    const el = document.getElementById('idleCountdown');
+    if (el) el.textContent = segundos;
+    if (segundos <= 0) clearInterval(countdownInterval);
+  }, 1000);
+}
+
+function autoCerrarSesion() {
+  const w = document.getElementById('idleWarning');
+  if (w) w.remove();
+  if (countdownInterval) clearInterval(countdownInterval);
+  toast('🔒 Sesión cerrada por inactividad', 'error');
+  setTimeout(() => cerrarSesionForzado(), 800);
+}
+
+function cerrarSesionForzado() {
+  if (idleTimer) clearTimeout(idleTimer);
+  if (warningTimer) clearTimeout(warningTimer);
+  usuarioActual = null;
+  sessionId = null;
+  sessionStartTime = null;
+  vehs = []; clis = []; inspeccionData = {};
+  document.getElementById("appWrapper").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("pinInput").value = "";
+  document.getElementById("loginError").classList.add("hidden");
+  document.getElementById("userBadge")?.classList.add("hidden");
+  document.getElementById("sessionBadge")?.classList.add("hidden");
+  setTimeout(() => document.getElementById("pinInput")?.focus(), 100);
+}
+
+function updateSessionBadge() {
+  const badge = document.getElementById("sessionBadge");
+  if (!badge || !sessionId || !sessionStartTime) return;
+  const minutos = Math.floor((Date.now() - sessionStartTime) / 60000);
+  badge.textContent = `🆔 ${sessionId} · ${minutos}m`;
+}
+
 function intentarLogin() {
   const pin = document.getElementById("pinInput").value.trim();
   const err = document.getElementById("loginError");
@@ -2682,6 +2848,8 @@ function intentarLogin() {
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appWrapper").classList.remove("hidden");
   aplicarRBAC();
+  iniciarSession();
+  updateSessionBadge();
   currentTab = usuario.tabInicial;
   if(usuario.rol === "admin") {
     sincronizar();
@@ -2710,19 +2878,13 @@ function aplicarRBAC() {
   badge.style.color = usuarioActual.color;
   badge.style.border = `1px solid ${usuarioActual.color}55`;
   badge.classList.remove("hidden");
+  // Mostrar también el badge de sesión
+  document.getElementById("sessionBadge")?.classList.remove("hidden");
 }
 
 function cerrarSesion() {
   if(!confirm("¿Cerrar sesión?")) return;
-  usuarioActual = null;
-  vehs = [];
-  clis = [];
-  inspeccionData = {};
-  document.getElementById("appWrapper").classList.add("hidden");
-  document.getElementById("loginScreen").classList.remove("hidden");
-  document.getElementById("pinInput").value = "";
-  document.getElementById("loginError").classList.add("hidden");
-  setTimeout(()=>document.getElementById("pinInput")?.focus(), 100);
+  cerrarSesionForzado();
 }
 
 document.querySelectorAll(".tab-btn").forEach(b=>{
