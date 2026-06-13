@@ -1342,6 +1342,7 @@ function renderDashboard(alertasSOAT, alertasRev, alertasCli) {
   ];
 
   let html = `<h1 class="text-xl font-extrabold mb-4">Dashboard</h1>
+    ${renderAlertasBanner()}
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
       ${stats.map(s=>`
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -2019,8 +2020,248 @@ function eliminarCotizacion(idOrRow, placa) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MÓDULO ANALYTICS · 3 sub-módulos
+//   1. Smart Alerts — banner de acciones del día
+//   2. Smart Pricing — sugiere precio basado en histórico
+//   3. Demand Heatmap — demanda vs stock por carrocería
+// ═══════════════════════════════════════════════════════════════
+
+function generarAlertasInteligentes() {
+  const alertas = [];
+  const hoy = today();
+  const enStock = vehs.filter(v => ["Disponible","Publicado","Reservado"].includes(v.estado));
+
+  // 1. Stock lento >45 días
+  enStock.forEach(v => {
+    const dias = calcDiasStock(v);
+    if (dias !== null && dias > 45) {
+      const precioActual = parseFloat(v.precioPublicacion) || 0;
+      const sugerencia   = precioActual > 0 ? Math.round(precioActual * 0.95) : null;
+      alertas.push({
+        prioridad: dias > 60 ? 'urgente' : 'atencion',
+        icon: '⏰',
+        titulo: `${v.marca} ${v.modelo} (${v.placa}) lleva ${dias}d en stock`,
+        descripcion: sugerencia ? `Sugerencia: bajar precio a ${money(sugerencia)} (-5%)` : 'Considera publicarlo o ajustar precio',
+        tab: 'inventario'
+      });
+    }
+  });
+
+  // 2. SOAT / Rev Técnica por vencer (<15 días)
+  enStock.forEach(v => {
+    if (v.soat) {
+      const d = diffDays(hoy, v.soat);
+      if (d >= 0 && d <= 15) alertas.push({
+        prioridad: d <= 7 ? 'urgente' : 'atencion', icon:'📄',
+        titulo: `SOAT del ${v.marca} ${v.modelo} (${v.placa}) vence en ${d}d`,
+        descripcion: `Fecha: ${fmt(v.soat)}. Renovar antes de publicar.`, tab:'inventario'
+      });
+    }
+    if (v.revTecnica) {
+      const d = diffDays(hoy, v.revTecnica);
+      if (d >= 0 && d <= 15) alertas.push({
+        prioridad: d <= 7 ? 'urgente' : 'atencion', icon:'🔧',
+        titulo: `Rev. Técnica del ${v.marca} ${v.modelo} (${v.placa}) vence en ${d}d`,
+        descripcion: `Fecha: ${fmt(v.revTecnica)}`, tab:'inventario'
+      });
+    }
+  });
+
+  // 3. Clientes activos sin contacto >7 días
+  clis.filter(c => ["Caliente","Tibio"].includes(c.status) && c.fechaUltimoContacto).forEach(c => {
+    const dias = diffDays(c.fechaUltimoContacto, hoy);
+    if (dias >= 7) alertas.push({
+      prioridad: c.status === 'Caliente' ? 'urgente' : 'atencion', icon:'📱',
+      titulo: `${c.nombre} (${c.status}) sin contacto hace ${dias}d`,
+      descripcion: `Buscando ${c.marcaBusca} ${c.modeloBusca || ''} · 💰 ${money(c.presupuesto)}`, tab:'crm'
+    });
+  });
+
+  // 4. Matches calientes sin atender (oportunidades)
+  enStock.forEach(v => {
+    const matches = findMatchesForVeh(v);
+    matches.filter(m => m.cliente.status === 'Caliente').forEach(m => {
+      alertas.push({
+        prioridad: 'oportunidad', icon:'🎯',
+        titulo: `${m.cliente.nombre} (Caliente) compatible con ${v.marca} ${v.modelo}`,
+        descripcion: `Match ${m.score}/100 · Precio ${money(v.precioPublicacion)} dentro de su presupuesto ${money(m.cliente.presupuesto)}`,
+        tab:'matches'
+      });
+    });
+  });
+
+  const prio = { urgente:0, atencion:1, oportunidad:2 };
+  return alertas.sort((a,b) => (prio[a.prioridad]||9) - (prio[b.prioridad]||9)).slice(0, 8);
+}
+
+function renderAlertasBanner() {
+  const alertas = generarAlertasInteligentes();
+  if (alertas.length === 0) return '';
+
+  const colores = {
+    urgente:     { bg:'from-red-900/40 to-red-950/30',     border:'border-red-500/40',     text:'text-red-300',     ico:'🔴' },
+    atencion:    { bg:'from-amber-900/40 to-amber-950/30', border:'border-amber-500/40',   text:'text-amber-300',   ico:'🟡' },
+    oportunidad: { bg:'from-blue-900/40 to-blue-950/30',   border:'border-blue-500/40',    text:'text-blue-300',    ico:'🟢' }
+  };
+
+  const urgentes = alertas.filter(a => a.prioridad === 'urgente').length;
+  const atencion = alertas.filter(a => a.prioridad === 'atencion').length;
+  const oportunidad = alertas.filter(a => a.prioridad === 'oportunidad').length;
+
+  return `<div class="bg-slate-900 border border-slate-700 rounded-xl mb-4 overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">💡</span>
+        <span class="font-bold text-sm text-slate-200">Alertas Inteligentes</span>
+        <span class="text-xs text-slate-500">· ${alertas.length} acción${alertas.length>1?'es':''} sugerida${alertas.length>1?'s':''} para hoy</span>
+      </div>
+      <div class="flex gap-2 text-[10px]">
+        ${urgentes > 0 ? `<span class="bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-bold">🔴 ${urgentes}</span>` : ''}
+        ${atencion > 0 ? `<span class="bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full font-bold">🟡 ${atencion}</span>` : ''}
+        ${oportunidad > 0 ? `<span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full font-bold">🟢 ${oportunidad}</span>` : ''}
+      </div>
+    </div>
+    <div class="p-3 space-y-2">
+      ${alertas.map(a => {
+        const c = colores[a.prioridad];
+        return `<div onclick="setTab('${a.tab}')" class="bg-gradient-to-r ${c.bg} border ${c.border} rounded-lg p-3 cursor-pointer hover:scale-[1.005] transition-transform">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl">${a.icon}</span>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-slate-200 text-sm">${a.titulo}</div>
+              <div class="text-slate-400 text-xs mt-0.5">${a.descripcion}</div>
+            </div>
+            <span class="text-slate-600 text-xs">→</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MÓDULO PERFORMANCE — Analytics por marca
 // ═══════════════════════════════════════════════════════════════
+
+// ─── SMART PRICING: sugiere precio basado en vehículos similares vendidos ───
+let pricingCalc = { marca:'', modelo:'', anio:'', km:'' };
+
+function calcularPrecioSugerido(c) {
+  const TOL_ANIO = 2;
+  const TOL_KM = 25000;
+  const marcaIn = String(c.marca||'').toUpperCase().trim();
+  const modeloIn = String(c.modelo||'').toUpperCase().trim();
+  const anioIn = parseInt(c.anio) || 0;
+  const kmIn = parseInt(c.km) || 0;
+
+  if (!marcaIn) return { confianza:'sin_datos', mensaje:'Indica al menos la marca' };
+
+  const candidatos = vehs.filter(v => v.estado === 'Vendido' && String(v.marca).toUpperCase().trim() === marcaIn);
+  if (candidatos.length === 0) return { confianza:'sin_datos', mensaje:`Sin ventas históricas de ${marcaIn}`, matches:[] };
+
+  // Aplicar filtros progresivos
+  let matches = candidatos;
+  if (modeloIn) matches = matches.filter(v => String(v.modelo).toUpperCase().trim() === modeloIn);
+  if (matches.length === 0) matches = candidatos; // fallback a solo marca
+
+  if (anioIn > 0) {
+    const filtAnio = matches.filter(v => Math.abs(parseInt(v.anio) - anioIn) <= TOL_ANIO);
+    if (filtAnio.length > 0) matches = filtAnio;
+  }
+  if (kmIn > 0) {
+    const filtKm = matches.filter(v => Math.abs(parseInt(v.kilometraje) - kmIn) <= TOL_KM);
+    if (filtKm.length > 0) matches = filtKm;
+  }
+
+  const precios = matches.map(v => parseFloat(v.precioVenta)||0).filter(p => p > 0);
+  if (precios.length === 0) return { confianza:'sin_datos', mensaje:'Sin precios válidos en histórico', matches:[] };
+
+  const margenes = matches.map(v => calcUtilidad(v)?.val || 0).filter(m => m !== 0);
+  const dias = matches.map(v => calcDiasStock(v)).filter(d => d !== null && d >= 0);
+
+  const precioAvg = precios.reduce((s,p) => s+p, 0) / precios.length;
+  const margenAvg = margenes.length > 0 ? margenes.reduce((s,m) => s+m, 0) / margenes.length : 0;
+  const diasAvg   = dias.length > 0 ? dias.reduce((s,d) => s+d, 0) / dias.length : 0;
+
+  // Confianza por cantidad de matches
+  let confianza, color;
+  if (matches.length >= 5)      { confianza='alta';  color='#22c55e'; }
+  else if (matches.length >= 2) { confianza='media'; color='#f59e0b'; }
+  else                          { confianza='baja';  color='#ef4444'; }
+
+  return {
+    confianza, color,
+    precioSugerido: Math.round(precioAvg),
+    precioMin: Math.round(Math.min(...precios)),
+    precioMax: Math.round(Math.max(...precios)),
+    margenEsperado: Math.round(margenAvg),
+    diasEsperados: Math.round(diasAvg),
+    basadoEn: matches.length,
+    matches: matches.slice(0, 5) // top 5 para mostrar
+  };
+}
+
+// ─── HEATMAP: demanda (clientes) vs stock por carrocería + transmisión ───
+function calcularDemandaVsStock() {
+  // Normalizar transmisión a M / A
+  const normTrans = t => {
+    const s = String(t||'').toUpperCase();
+    if (s.includes('CVT') || s.includes('AUTO') || s === 'AT') return 'Automático';
+    if (s.includes('MANUAL') || s === 'MT') return 'Manual';
+    return 'Cualquiera';
+  };
+
+  // Agrupar demanda (clientes Caliente + Tibio)
+  const demanda = {};
+  clis.filter(c => ["Caliente","Tibio"].includes(c.status)).forEach(c => {
+    const carr = c.carroceria === 'Indiferente' ? 'CUALQUIERA' : c.carroceria;
+    const trans = c.transmisionDesea === 'Indiferente' ? 'Cualquiera' : c.transmisionDesea;
+    const key = `${carr}|${trans}`;
+    demanda[key] = demanda[key] || { carr, trans, count:0, items:[] };
+    demanda[key].count++;
+    demanda[key].items.push(c);
+  });
+
+  // Agrupar stock disponible
+  const stock = {};
+  vehs.filter(v => ["Disponible","Publicado"].includes(v.estado)).forEach(v => {
+    const carr = getCarroceria(v);
+    const trans = normTrans(v.transmision);
+    const key = `${carr}|${trans}`;
+    stock[key] = stock[key] || { carr, trans, count:0, items:[] };
+    stock[key].count++;
+    stock[key].items.push(v);
+  });
+
+  // Combinar
+  const allKeys = new Set([...Object.keys(demanda), ...Object.keys(stock)]);
+  const result = [];
+  allKeys.forEach(key => {
+    const [carr, trans] = key.split('|');
+    const d = demanda[key]?.count || 0;
+    const s = stock[key]?.count || 0;
+    let estado, sugerencia;
+    if (d > 0 && s === 0) {
+      estado = 'oportunidad';
+      sugerencia = `Comprar ${d} ${carr} ${trans} — ${d} cliente${d>1?'s':''} buscando, 0 en stock`;
+    } else if (d > s) {
+      estado = 'subStock';
+      sugerencia = `Considerar más ${carr} — demanda ${d} > stock ${s}`;
+    } else if (s > Math.max(d * 2, 2)) {
+      estado = 'sobreStock';
+      sugerencia = `Sobre-stock de ${carr} — bajar precio o pausar compra`;
+    } else {
+      estado = 'equilibrado';
+      sugerencia = `Balanceado: ${d} demanda vs ${s} stock`;
+    }
+    result.push({ carr, trans, demanda:d, stock:s, estado, sugerencia });
+  });
+
+  return result.sort((a,b) => {
+    const prio = { oportunidad:0, subStock:1, sobreStock:2, equilibrado:3 };
+    return (prio[a.estado]||9) - (prio[b.estado]||9);
+  });
+}
 
 function calcularPerformanceMarcas() {
   const grupos = {};
@@ -2261,9 +2502,189 @@ function renderPerformance() {
     <span class="inline-block mr-3">🟢 ≤20 días | 🟡 21-45 días | 🔴 +45 días</span> ·
     <span class="inline-block ml-3">ROI = Margen Real / Inversión Total</span>
   </div>
+
+  <!-- ═══════ SMART PRICING ═══════ -->
+  ${renderSmartPricing()}
+
+  <!-- ═══════ HEATMAP DEMANDA vs STOCK ═══════ -->
+  ${renderHeatmapDemanda()}
+
   </div>`;
 
   return html;
+}
+
+function renderSmartPricing() {
+  const c = pricingCalc;
+  const r = c.marca ? calcularPrecioSugerido(c) : null;
+
+  let resultadoHtml = '';
+  if (r && r.confianza === 'sin_datos') {
+    resultadoHtml = `<div class="bg-slate-800/40 border border-slate-700 rounded-lg p-4 text-center">
+      <div class="text-3xl mb-2">📭</div>
+      <div class="text-slate-400 text-sm">${r.mensaje}</div>
+    </div>`;
+  } else if (r) {
+    const confLabel = { alta:'ALTA', media:'MEDIA', baja:'BAJA' };
+    resultadoHtml = `
+      <div class="bg-gradient-to-br from-emerald-900/30 to-blue-900/20 border-2 border-emerald-500/50 rounded-xl p-5">
+        <div class="text-xs text-emerald-300 uppercase tracking-wider font-bold mb-2">💰 Precio sugerido de publicación</div>
+        <div class="text-5xl font-black text-white tracking-tight" style="text-shadow:0 0 25px rgba(16,185,129,.4)">${money(r.precioSugerido)}</div>
+        <div class="text-xs text-slate-400 mt-1">Rango histórico: ${money(r.precioMin)} – ${money(r.precioMax)}</div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mt-3">
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase tracking-wider">Margen esperado</div>
+          <div class="text-base font-bold text-emerald-400 mt-1">${money(r.margenEsperado)}</div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase tracking-wider">Días estimados</div>
+          <div class="text-base font-bold text-amber-400 mt-1">${r.diasEsperados}d</div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
+          <div class="text-[10px] text-slate-500 uppercase tracking-wider">Confianza</div>
+          <div class="text-base font-bold mt-1" style="color:${r.color}">${confLabel[r.confianza]}</div>
+        </div>
+      </div>
+      <div class="text-[11px] text-slate-500 mt-2 text-center">Basado en <b class="text-slate-300">${r.basadoEn}</b> vehículo${r.basadoEn>1?'s':''} similar${r.basadoEn>1?'es':''} vendido${r.basadoEn>1?'s':''} en tu histórico</div>
+      ${r.matches && r.matches.length > 0 ? `
+        <details class="mt-3">
+          <summary class="text-xs text-sky-400 cursor-pointer hover:text-sky-300">Ver ${r.matches.length} vehículos de referencia →</summary>
+          <div class="mt-2 space-y-1">
+            ${r.matches.map(v => `<div class="bg-slate-800/40 border border-slate-700/50 rounded p-2 text-xs flex justify-between flex-wrap gap-1">
+              <span>${v.marca} ${v.modelo} ${v.version || ''} ${v.anio} · ${parseInt(v.kilometraje).toLocaleString()}km</span>
+              <span class="text-emerald-400 font-bold">${money(v.precioVenta)} en ${calcDiasStock(v)}d</span>
+            </div>`).join('')}
+          </div>
+        </details>
+      ` : ''}
+    `;
+  } else {
+    resultadoHtml = `<div class="bg-slate-800/40 border border-slate-700 rounded-lg p-6 text-center">
+      <div class="text-3xl mb-2">💡</div>
+      <div class="text-slate-400 text-sm">Ingresa la marca (mínimo) para ver una sugerencia de precio</div>
+    </div>`;
+  }
+
+  return `<div class="mt-6 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-800">
+      <h3 class="text-sm font-bold text-slate-300">💰 Smart Pricing — Sugerencia basada en histórico</h3>
+      <p class="text-xs text-slate-500 mt-1">Ingresa los datos de un vehículo nuevo y te diré a qué precio publicarlo según tus ventas pasadas</p>
+    </div>
+    <div class="p-4 grid lg:grid-cols-[300px_1fr] gap-4">
+      <!-- INPUTS -->
+      <div class="space-y-3">
+        <div>
+          <label class="text-[10px] text-slate-500 uppercase tracking-wider">Marca *</label>
+          <input type="text" value="${c.marca}" placeholder="ej. NISSAN"
+            oninput="pricingCalc.marca=this.value.toUpperCase();this.value=pricingCalc.marca;render()"
+            class="uppercase">
+        </div>
+        <div>
+          <label class="text-[10px] text-slate-500 uppercase tracking-wider">Modelo</label>
+          <input type="text" value="${c.modelo}" placeholder="ej. KICKS"
+            oninput="pricingCalc.modelo=this.value.toUpperCase();this.value=pricingCalc.modelo;render()"
+            class="uppercase">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-500 uppercase tracking-wider">Año</label>
+            <input type="number" min="1990" max="2030" value="${c.anio}" placeholder="2022"
+              oninput="pricingCalc.anio=parseInt(this.value)||'';render()">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-500 uppercase tracking-wider">KM</label>
+            <input type="number" min="0" value="${c.km}" placeholder="50000"
+              oninput="pricingCalc.km=parseInt(this.value)||'';render()">
+          </div>
+        </div>
+        <button onclick="pricingCalc={marca:'',modelo:'',anio:'',km:''};render()"
+          class="w-full text-xs text-slate-500 border border-slate-700 rounded py-1.5">🗑 Limpiar</button>
+      </div>
+
+      <!-- RESULTADO -->
+      <div>${resultadoHtml}</div>
+    </div>
+  </div>`;
+}
+
+function renderHeatmapDemanda() {
+  const data = calcularDemandaVsStock();
+  if (data.length === 0) return '';
+
+  const colorEstado = {
+    oportunidad: { bg:'bg-emerald-500/15', border:'border-emerald-500/50', text:'text-emerald-400', label:'OPORTUNIDAD' },
+    subStock:    { bg:'bg-amber-500/15',   border:'border-amber-500/50',   text:'text-amber-400',   label:'BAJO STOCK' },
+    sobreStock:  { bg:'bg-red-500/15',     border:'border-red-500/50',     text:'text-red-400',     label:'SOBRE STOCK' },
+    equilibrado: { bg:'bg-slate-700/30',   border:'border-slate-600',      text:'text-slate-400',   label:'BALANCEADO' }
+  };
+
+  const oportunidades = data.filter(d => d.estado === 'oportunidad');
+  const desbalances   = data.filter(d => d.estado === 'subStock' || d.estado === 'sobreStock');
+
+  return `<div class="mt-6 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-800">
+      <h3 class="text-sm font-bold text-slate-300">🌡 Heatmap Demanda vs Stock</h3>
+      <p class="text-xs text-slate-500 mt-1">Qué buscan tus clientes activos (Caliente + Tibio) vs qué tienes en stock</p>
+    </div>
+
+    ${oportunidades.length > 0 ? `
+      <div class="px-4 pt-4">
+        <div class="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wider">🎯 Oportunidades de compra</div>
+        <div class="space-y-2">
+          ${oportunidades.map(d => `
+            <div class="bg-emerald-500/10 border border-emerald-500/40 rounded-lg p-3 text-sm">
+              <div class="flex justify-between items-center flex-wrap gap-2">
+                <div>
+                  <span class="font-bold text-white">${d.carr}</span>
+                  <span class="text-slate-500 mx-1">·</span>
+                  <span class="text-slate-300">${d.trans}</span>
+                </div>
+                <div class="flex gap-3 text-xs">
+                  <span class="text-emerald-400">📥 ${d.demanda} demanda</span>
+                  <span class="text-red-400">📦 ${d.stock} stock</span>
+                </div>
+              </div>
+              <div class="text-xs text-emerald-300 mt-1">💡 ${d.sugerencia}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    <div class="p-4">
+      <div class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">📊 Matriz Demanda vs Stock</div>
+      <div class="overflow-x-auto">
+        <table>
+          <thead><tr>
+            <th>Carrocería</th>
+            <th>Transmisión</th>
+            <th class="text-right">📥 Demanda (clientes)</th>
+            <th class="text-right">📦 Stock</th>
+            <th class="text-right">Balance</th>
+            <th>Estado</th>
+          </tr></thead>
+          <tbody>
+            ${data.map(d => {
+              const c = colorEstado[d.estado];
+              return `<tr>
+                <td class="font-semibold">${d.carr}</td>
+                <td class="text-slate-400">${d.trans}</td>
+                <td class="text-right text-emerald-400 font-bold">${d.demanda}</td>
+                <td class="text-right text-sky-400 font-bold">${d.stock}</td>
+                <td class="text-right font-bold ${d.demanda - d.stock > 0 ? 'text-emerald-400' : d.demanda - d.stock < 0 ? 'text-amber-400' : 'text-slate-500'}">${d.demanda - d.stock > 0 ? '+' : ''}${d.demanda - d.stock}</td>
+                <td><span class="${c.bg} ${c.border} ${c.text} border rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider">${c.label}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="px-4 pb-4 text-[11px] text-slate-600 text-center border-t border-slate-800 pt-3">
+      🟢 OPORTUNIDAD: demanda sin stock · 🟡 BAJO STOCK: demanda > stock · 🔴 SOBRE STOCK: stock duplica demanda · ⚪ BALANCEADO
+    </div>
+  </div>`;
 }
 
 // ────────────── MÓDULO INSPECCIÓN ──────────────
