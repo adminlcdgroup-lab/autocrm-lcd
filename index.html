@@ -84,6 +84,7 @@
     <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="matches" data-role="admin">🎯 Matches</button>
     <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="tasadora" data-role="admin">⚖️ Tasación</button>
     <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="cotizaciones" data-role="admin">📑 Cotizaciones</button>
+    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="performance" data-role="admin">📈 Performance</button>
     <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="inspeccion" data-role="all">📋 Inspección</button>
     <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="flyer" data-role="admin">🎨 Flyer</button>
     <div class="ml-auto flex items-center gap-2">
@@ -1298,7 +1299,7 @@ function render() {
     initInspeccion();
     return;
   }
-  if(vehs.length === 0 && clis.length === 0 && !cargando && currentTab !== "tasadora" && currentTab !== "cotizaciones" && currentTab !== "inspeccion" && currentTab !== "flyer") {
+  if(vehs.length === 0 && clis.length === 0 && !cargando && currentTab !== "tasadora" && currentTab !== "cotizaciones" && currentTab !== "inspeccion" && currentTab !== "flyer" && currentTab !== "performance") {
     content.innerHTML = renderEmpty();
     return;
   }
@@ -1308,6 +1309,7 @@ function render() {
   else if(currentTab === "matches") content.innerHTML = renderMatches();
   else if(currentTab === "tasadora") content.innerHTML = renderTasadora();
   else if(currentTab === "cotizaciones") { content.innerHTML = renderCotizaciones(); cargarCotizaciones(); }
+  else if(currentTab === "performance") content.innerHTML = renderPerformance();
   else if(currentTab === "inspeccion") { content.innerHTML = renderInspeccion(); initInspeccion(); }
   else if(currentTab === "flyer")      { content.innerHTML = renderFlyer();      initFlyer();      }
 }
@@ -2014,6 +2016,254 @@ function eliminarCotizacion(idOrRow, placa) {
       .withFailureHandler(err=>toast("⚠️ Error: "+err, "error"))
       .eliminarTasacion(idOrRow);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO PERFORMANCE — Analytics por marca
+// ═══════════════════════════════════════════════════════════════
+
+function calcularPerformanceMarcas() {
+  const grupos = {};
+
+  vehs.forEach(v => {
+    const m = String(v.marca || 'SIN MARCA').toUpperCase().trim();
+    if (!grupos[m]) {
+      grupos[m] = {
+        marca: m,
+        total: 0, vendidos: 0, enStock: 0,
+        margenRealTotal: 0, margenProyTotal: 0,
+        diasStockTotal: 0, diasStockCount: 0,
+        inversionTotal: 0, ventasTotal: 0,
+        modelos: new Set()
+      };
+    }
+
+    const g = grupos[m];
+    g.total++;
+    g.modelos.add(v.modelo);
+    const ct = calcCostoTotal(v);
+    g.inversionTotal += ct;
+
+    if (v.estado === 'Vendido') {
+      g.vendidos++;
+      const venta = parseFloat(v.precioVenta) || 0;
+      g.ventasTotal += venta;
+      g.margenRealTotal += (venta - ct);
+      if (v.fechaCompra && v.fechaVenta) {
+        const dias = diffDays(v.fechaCompra, v.fechaVenta);
+        if (dias >= 0) {
+          g.diasStockTotal += dias;
+          g.diasStockCount++;
+        }
+      }
+    } else if (["Disponible","Publicado","Reservado"].includes(v.estado)) {
+      g.enStock++;
+      const u = calcUtilidad(v);
+      if (u) g.margenProyTotal += u.val;
+    }
+  });
+
+  return Object.values(grupos).map(g => {
+    const margenAvg = g.vendidos > 0 ? g.margenRealTotal / g.vendidos : 0;
+    const diasAvg   = g.diasStockCount > 0 ? g.diasStockTotal / g.diasStockCount : 0;
+    const tasaExito = g.total > 0 ? (g.vendidos / g.total) * 100 : 0;
+    const roi       = g.inversionTotal > 0 ? (g.margenRealTotal / g.inversionTotal) * 100 : 0;
+    return {
+      ...g,
+      modelosCount: g.modelos.size,
+      margenAvg,
+      diasAvg,
+      tasaExito,
+      roi
+    };
+  }).sort((a,b) => b.margenRealTotal - a.margenRealTotal);
+}
+
+function generarInsightsPerformance(data) {
+  const insights = [];
+  if (data.length === 0) return insights;
+
+  // Mejor margen total
+  const top = data[0];
+  if (top.vendidos > 0 && top.margenRealTotal > 0) {
+    insights.push({
+      tipo: 'success',
+      icon: '🏆',
+      texto: `<b>${top.marca}</b> es tu marca más rentable: ${money(top.margenRealTotal)} de margen total en ${top.vendidos} venta${top.vendidos>1?'s':''}.`,
+      accion: 'Considera priorizar la compra de esta marca en próximas tasaciones.'
+    });
+  }
+
+  // Marca más rápida en vender
+  const rapidas = data.filter(m => m.vendidos > 0 && m.diasAvg > 0)
+                     .sort((a,b) => a.diasAvg - b.diasAvg);
+  if (rapidas.length > 0 && rapidas[0].diasAvg <= 15) {
+    insights.push({
+      tipo: 'success',
+      icon: '⚡',
+      texto: `<b>${rapidas[0].marca}</b> rota muy rápido: ${Math.round(rapidas[0].diasAvg)} días promedio de stock.`,
+      accion: 'Velocidad de venta alta = menor riesgo de capital inmovilizado.'
+    });
+  }
+
+  // Marcas con pérdida
+  const perdidas = data.filter(m => m.vendidos > 0 && m.margenRealTotal < 0);
+  perdidas.forEach(p => {
+    insights.push({
+      tipo: 'danger',
+      icon: '🔴',
+      texto: `<b>${p.marca}</b> generó pérdida: ${money(p.margenRealTotal)} en ${p.vendidos} venta${p.vendidos>1?'s':''}.`,
+      accion: 'Revisa costos ocultos, precios de compra o estrategia de publicación.'
+    });
+  });
+
+  // Marcas con stock lento
+  const lentas = data.filter(m => m.vendidos > 0 && m.diasAvg > 60);
+  lentas.forEach(l => {
+    insights.push({
+      tipo: 'warning',
+      icon: '🐌',
+      texto: `<b>${l.marca}</b> demora ${Math.round(l.diasAvg)} días promedio en venderse.`,
+      accion: 'Considera bajar el precio o revisar si el mercado está saturado para esta marca.'
+    });
+  });
+
+  return insights;
+}
+
+function renderPerformance() {
+  const data = calcularPerformanceMarcas();
+  const totalVendidos = vehs.filter(v => v.estado === 'Vendido').length;
+
+  if (totalVendidos === 0) {
+    return `<div class="max-w-3xl mx-auto text-center py-20">
+      <div class="text-6xl mb-4">📊</div>
+      <h2 class="text-xl font-bold mb-2">Sin datos de ventas todavía</h2>
+      <p class="text-slate-500 text-sm mb-4">Cuando registres ventas en tu inventario, este dashboard te mostrará automáticamente:</p>
+      <ul class="text-slate-400 text-sm space-y-1 max-w-md mx-auto text-left">
+        <li>📈 Margen promedio por marca</li>
+        <li>⏱ Días promedio de stock por marca</li>
+        <li>🎯 Tasa de éxito de venta</li>
+        <li>💡 Insights y recomendaciones de compra</li>
+      </ul>
+    </div>`;
+  }
+
+  const insights = generarInsightsPerformance(data);
+
+  // KPIs globales
+  const margenTotalGlobal = data.reduce((s,m) => s + m.margenRealTotal, 0);
+  const inversionGlobal   = data.reduce((s,m) => s + m.inversionTotal, 0);
+  const roiGlobal         = inversionGlobal > 0 ? (margenTotalGlobal / inversionGlobal) * 100 : 0;
+  const marcaTop          = data[0]?.marca || '—';
+  const conVentas         = data.filter(m => m.vendidos > 0);
+  const diasAvgGlobal     = conVentas.reduce((s,m) => s + m.diasAvg * m.vendidos, 0) / Math.max(conVentas.reduce((s,m) => s + m.vendidos, 0), 1);
+
+  let html = `<div class="max-w-7xl mx-auto">
+    <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
+      <div>
+        <h1 class="text-xl font-extrabold">📈 Performance por Marca</h1>
+        <p class="text-slate-500 text-sm mt-1">Analytics de tu inventario · ${totalVendidos} ventas históricas · ${data.length} marcas</p>
+      </div>
+    </div>
+
+    <!-- KPIs Globales -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div class="bg-gradient-to-br from-emerald-900/40 to-emerald-950/30 border border-emerald-500/40 rounded-xl p-4">
+        <div class="text-xs text-emerald-300 uppercase tracking-wider font-bold">💰 Margen Total</div>
+        <div class="text-2xl font-black text-emerald-400 mt-1">${money(margenTotalGlobal)}</div>
+        <div class="text-[10px] text-emerald-300/60 mt-1">ROI ${roiGlobal.toFixed(1)}%</div>
+      </div>
+      <div class="bg-gradient-to-br from-sky-900/40 to-sky-950/30 border border-sky-500/40 rounded-xl p-4">
+        <div class="text-xs text-sky-300 uppercase tracking-wider font-bold">🏆 Top Marca</div>
+        <div class="text-2xl font-black text-sky-400 mt-1">${marcaTop}</div>
+        <div class="text-[10px] text-sky-300/60 mt-1">${data[0]?.vendidos || 0} ventas</div>
+      </div>
+      <div class="bg-gradient-to-br from-amber-900/40 to-amber-950/30 border border-amber-500/40 rounded-xl p-4">
+        <div class="text-xs text-amber-300 uppercase tracking-wider font-bold">⏱ Días Avg</div>
+        <div class="text-2xl font-black text-amber-400 mt-1">${Math.round(diasAvgGlobal)}d</div>
+        <div class="text-[10px] text-amber-300/60 mt-1">stock promedio</div>
+      </div>
+      <div class="bg-gradient-to-br from-purple-900/40 to-purple-950/30 border border-purple-500/40 rounded-xl p-4">
+        <div class="text-xs text-purple-300 uppercase tracking-wider font-bold">📦 Inversión</div>
+        <div class="text-2xl font-black text-purple-400 mt-1">${money(inversionGlobal)}</div>
+        <div class="text-[10px] text-purple-300/60 mt-1">acumulada total</div>
+      </div>
+    </div>`;
+
+  // Insights automáticos
+  if (insights.length > 0) {
+    html += `<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-5">
+      <h3 class="text-sm font-bold text-slate-300 mb-3">💡 Insights Automáticos</h3>
+      <div class="space-y-2">
+        ${insights.map(i => {
+          const colorMap = {
+            success: 'border-emerald-500/30 bg-emerald-500/5',
+            warning: 'border-amber-500/30 bg-amber-500/5',
+            danger:  'border-red-500/30 bg-red-500/5'
+          };
+          return `<div class="border ${colorMap[i.tipo]} rounded-lg p-3 text-sm">
+            <div class="flex items-start gap-2">
+              <span class="text-lg">${i.icon}</span>
+              <div class="flex-1">
+                <div class="text-slate-200">${i.texto}</div>
+                <div class="text-slate-500 text-xs mt-1">${i.accion}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Tabla principal
+  html += `<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-800">
+      <h3 class="text-sm font-bold text-slate-300">📊 Detalle por Marca</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table>
+        <thead><tr>
+          <th>Marca</th>
+          <th class="text-right">Total</th>
+          <th class="text-right">Vendidos</th>
+          <th class="text-right">Stock</th>
+          <th class="text-right">Margen Total</th>
+          <th class="text-right">Margen Avg</th>
+          <th class="text-right">Días Avg</th>
+          <th class="text-right">Tasa Éxito</th>
+          <th class="text-right">ROI</th>
+        </tr></thead>
+        <tbody>
+          ${data.map(m => {
+            const margenColor = m.margenRealTotal > 0 ? '#4ade80' : m.margenRealTotal < 0 ? '#ef4444' : '#94a3b8';
+            const diasColor   = m.diasAvg === 0 ? '#64748b' : m.diasAvg <= 20 ? '#4ade80' : m.diasAvg <= 45 ? '#f59e0b' : '#ef4444';
+            const tasaColor   = m.tasaExito >= 80 ? '#4ade80' : m.tasaExito >= 50 ? '#f59e0b' : '#94a3b8';
+            const roiColor    = m.roi > 10 ? '#4ade80' : m.roi > 0 ? '#fbbf24' : m.roi < 0 ? '#ef4444' : '#94a3b8';
+            return `<tr>
+              <td><div class="font-bold">${m.marca}</div><div class="text-slate-500 text-xs">${m.modelosCount} modelo${m.modelosCount>1?'s':''}</div></td>
+              <td class="text-right">${m.total}</td>
+              <td class="text-right text-emerald-400 font-bold">${m.vendidos}</td>
+              <td class="text-right text-sky-400">${m.enStock}</td>
+              <td class="text-right font-bold" style="color:${margenColor}">${m.margenRealTotal !== 0 ? money(m.margenRealTotal) : '—'}</td>
+              <td class="text-right" style="color:${margenColor}">${m.vendidos > 0 ? money(m.margenAvg) : '—'}</td>
+              <td class="text-right font-semibold" style="color:${diasColor}">${m.diasAvg > 0 ? Math.round(m.diasAvg) + 'd' : '—'}</td>
+              <td class="text-right font-semibold" style="color:${tasaColor}">${m.tasaExito.toFixed(0)}%</td>
+              <td class="text-right font-bold" style="color:${roiColor}">${m.roi !== 0 ? m.roi.toFixed(1)+'%' : '—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-4 text-xs text-slate-600 text-center">
+    <span class="inline-block mr-3">🟢 ≤20 días | 🟡 21-45 días | 🔴 +45 días</span> ·
+    <span class="inline-block ml-3">ROI = Margen Real / Inversión Total</span>
+  </div>
+  </div>`;
+
+  return html;
 }
 
 // ────────────── MÓDULO INSPECCIÓN ──────────────
