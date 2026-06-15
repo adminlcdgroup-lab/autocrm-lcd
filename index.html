@@ -23,6 +23,10 @@
   .section-title { font-size:12px; color:#38bdf8; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #1e293b; }
   .spinner { width:40px; height:40px; border:3px solid #1e293b; border-top:3px solid #38bdf8; border-radius:50%; animation: spin 0.8s linear infinite; margin:0 auto; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes highlightPulse { 0%,100% { background:transparent; } 30% { background:rgba(56,189,248,.3); } 60% { background:rgba(56,189,248,.15); } }
+  tr.highlight-row td { animation: highlightPulse 2.5s ease-out; }
+  .clickable-card { cursor:pointer; transition: all .15s ease; }
+  .clickable-card:hover { transform: scale(1.02); border-color: rgba(56,189,248,.5); }
   .toast { position:fixed; bottom:20px; right:20px; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px 18px; z-index:2000; font-size:13px; transition:all 0.3s; }
   .toast.success { border-color:#22c55e; color:#4ade80; }
   .toast.error { border-color:#ef4444; color:#ef4444; }
@@ -90,6 +94,7 @@
     <div class="ml-auto flex items-center gap-2">
       <span id="sessionBadge" class="hidden text-[10px] text-slate-500 font-mono px-2 py-1 rounded border border-slate-800" title="ID de sesión · minutos activos"></span>
       <span id="userBadge" class="hidden text-xs px-3 py-1 rounded-full"></span>
+      <button onclick="abrirCambiarPin()" id="btnCambiarPin" class="hidden text-slate-400 hover:text-amber-400 text-xs font-semibold px-3 py-1" title="Cambiar mi PIN">🔑 Cambiar PIN</button>
       <button onclick="sincronizar()" id="btnSync" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1" title="Recargar desde Google Sheets">🔄 Sincronizar</button>
       <div id="alertBadge" class="hidden bg-red-500/20 border border-red-500 rounded-full px-3 py-1 text-red-500 text-xs font-bold cursor-pointer"></div>
       <button onclick="cerrarSesion()" class="text-slate-400 hover:text-red-400 text-xs font-semibold px-3 py-1 border border-slate-700 rounded" title="Cerrar sesión">🚪 Salir</button>
@@ -399,7 +404,11 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwQl-hTnYJfLVG
     'guardarInspeccionYGenerarDocumento': { action: 'guardarInspeccion' },
     'eliminarTasacion':                   { action: 'eliminarTasacion' },
     'guardarFotosVehiculo':               { action: 'guardarFotosVehiculo' },
-    'guardarFlyerGenerado':               { action: 'guardarFlyerGenerado' }
+    'guardarFlyerGenerado':               { action: 'guardarFlyerGenerado' },
+    // Fase 1 · Auth segura
+    'verificarPin':                       { action: 'verificarPin' },
+    'cerrarSesionBackend':                { action: 'cerrarSesionBackend' },
+    'cambiarPin':                         { action: 'cambiarPin' }
   };
 
   function fireRequest(fnName, arg, onSuccess, onFailure) {
@@ -505,17 +514,17 @@ function renderFlyer() {
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div class="flyer-section-title">🚗 Datos del vehículo</div>
           <div class="grid grid-cols-2 gap-2">
-            <div><label class="flyer-input-label">Marca</label><input type="text" value="${FLYER_STATE.marca}" oninput="FLYER_STATE.marca=this.value.toUpperCase();this.value=FLYER_STATE.marca;flyerUpdate()"></div>
+            <div><label class="flyer-input-label">Marca</label><input type="text" value="${FLYER_STATE.marca}" oninput="onUpperInput(this, v => { FLYER_STATE.marca = v; flyerUpdate(); })"></div>
             <div><label class="flyer-input-label">Año</label><input type="text" value="${FLYER_STATE.anio}" oninput="FLYER_STATE.anio=this.value;flyerUpdate()"></div>
-            <div class="col-span-2"><label class="flyer-input-label">Modelo</label><input type="text" value="${FLYER_STATE.modelo}" oninput="FLYER_STATE.modelo=this.value.toUpperCase();this.value=FLYER_STATE.modelo;flyerUpdate()"></div>
-            <div class="col-span-2"><label class="flyer-input-label">Versión</label><input type="text" value="${FLYER_STATE.version}" oninput="FLYER_STATE.version=this.value.toUpperCase();this.value=FLYER_STATE.version;flyerUpdate()"></div>
+            <div class="col-span-2"><label class="flyer-input-label">Modelo</label><input type="text" value="${FLYER_STATE.modelo}" oninput="onUpperInput(this, v => { FLYER_STATE.modelo = v; flyerUpdate(); })"></div>
+            <div class="col-span-2"><label class="flyer-input-label">Versión</label><input type="text" value="${FLYER_STATE.version}" oninput="onUpperInput(this, v => { FLYER_STATE.version = v; flyerUpdate(); })"></div>
           </div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div class="flyer-section-title">💰 Precio &amp; Etiqueta</div>
           <div class="grid grid-cols-2 gap-2">
             <div><label class="flyer-input-label">Precio (USD)</label><input type="number" value="${FLYER_STATE.precio}" oninput="FLYER_STATE.precio=this.value;flyerUpdate()" placeholder="15500"></div>
-            <div><label class="flyer-input-label">Etiqueta destacada</label><input type="text" value="${FLYER_STATE.tagOferta}" oninput="FLYER_STATE.tagOferta=this.value.toUpperCase();this.value=FLYER_STATE.tagOferta;flyerUpdate()" placeholder="OFERTA"></div>
+            <div><label class="flyer-input-label">Etiqueta destacada</label><input type="text" value="${FLYER_STATE.tagOferta}" oninput="onUpperInput(this, v => { FLYER_STATE.tagOferta = v; flyerUpdate(); })" placeholder="OFERTA"></div>
           </div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -523,8 +532,8 @@ function renderFlyer() {
           <div class="grid grid-cols-2 gap-2">
             <div><label class="flyer-input-label">Kilometraje</label><input type="text" value="${FLYER_STATE.km}" oninput="FLYER_STATE.km=this.value;flyerUpdate()"></div>
             <div><label class="flyer-input-label">Motor</label><input type="text" value="${FLYER_STATE.motor}" oninput="FLYER_STATE.motor=this.value;flyerUpdate()" placeholder="2.0L"></div>
-            <div><label class="flyer-input-label">Transmisión</label><input type="text" value="${FLYER_STATE.transmision}" oninput="FLYER_STATE.transmision=this.value.toUpperCase();this.value=FLYER_STATE.transmision;flyerUpdate()" placeholder="AUTOMÁTICA"></div>
-            <div><label class="flyer-input-label">Tracción</label><input type="text" value="${FLYER_STATE.traccion}" oninput="FLYER_STATE.traccion=this.value.toUpperCase();this.value=FLYER_STATE.traccion;flyerUpdate()" placeholder="4X4"></div>
+            <div><label class="flyer-input-label">Transmisión</label><input type="text" value="${FLYER_STATE.transmision}" oninput="onUpperInput(this, v => { FLYER_STATE.transmision = v; flyerUpdate(); })" placeholder="AUTOMÁTICA"></div>
+            <div><label class="flyer-input-label">Tracción</label><input type="text" value="${FLYER_STATE.traccion}" oninput="onUpperInput(this, v => { FLYER_STATE.traccion = v; flyerUpdate(); })" placeholder="4X4"></div>
           </div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -1016,16 +1025,23 @@ let lastMatches = [];
 let cargando = true;
 
 // ────────────── CONEXIÓN GOOGLE APPS SCRIPT ──────────────
+let _syncInFlight = false;
 function sincronizar() {
+  if (_syncInFlight) {
+    toast("⏳ Sincronización ya en curso...", "success");
+    return;
+  }
+  _syncInFlight = true;
   cargando = true;
   showLoader(true);
   if(typeof google !== "undefined" && google.script && google.script.run) {
     google.script.run
-      .withSuccessHandler(procesarDatos)
-      .withFailureHandler(errorCarga)
+      .withSuccessHandler(d => { _syncInFlight = false; procesarDatos(d); })
+      .withFailureHandler(e => { _syncInFlight = false; errorCarga(e); })
       .obtenerDatos("Inventario_Stock");
   } else {
     setTimeout(()=>{
+      _syncInFlight = false;
       errorCarga({message:"google.script.run no disponible (modo preview). La app funcionará al desplegarla en Google Apps Script."});
     }, 800);
   }
@@ -1041,6 +1057,7 @@ function procesarDatos(data) {
       vehs = (data.vehiculos || data.inventario || []).map(normalizarVehiculo);
       clis = (data.clientes || data.crm || []).map(normalizarCliente);
     }
+    if (typeof invalidarMemos === 'function') invalidarMemos();  // Pack B: cache bust
     cargando = false;
     showLoader(false);
     render();
@@ -1182,6 +1199,7 @@ function vehToBackend(v) {
 }
 
 function recargarApp(result) {
+  if (typeof invalidarMemos === 'function') invalidarMemos();  // Fix #5: cache stale
   toast("✅ Guardado correctamente", "success");
   sincronizar();
 }
@@ -1200,7 +1218,12 @@ function toast(msg, type="success") {
   const el = document.createElement("div");
   el.className = `toast ${type}`;
   el.textContent = msg;
-  document.getElementById("toastRoot").appendChild(el);
+  const root = document.getElementById("toastRoot");
+  if (root) {
+    root.appendChild(el);
+    // PACK C: limita a 3 toasts visibles
+    while (root.children.length > 3) root.removeChild(root.firstChild);
+  }
   setTimeout(()=> el.remove(), 3500);
 }
 
@@ -1672,24 +1695,24 @@ function renderTasadora() {
           <div>
             <label>1. Placa del Vehículo</label>
             <input id="tasPlaca" type="text" value="${d.placa}" placeholder="ABC-123"
-              oninput="tasadoraData.placa=this.value.toUpperCase();document.getElementById('tasPlaca').value=this.value" class="uppercase">
+              oninput="onUpperInput(this, v => tasadoraData.placa = v)" class="uppercase">
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label>Marca</label>
               <input type="text" value="${d.marca||''}" placeholder="Toyota, BYD, etc."
-                oninput="tasadoraData.marca=this.value.toUpperCase();this.value=tasadoraData.marca">
+                oninput="onUpperInput(this, v => tasadoraData.marca = v)">
             </div>
             <div>
               <label>Modelo</label>
               <input type="text" value="${d.modelo||''}" placeholder="RAV4"
-                oninput="tasadoraData.modelo=this.value.toUpperCase();this.value=tasadoraData.modelo">
+                oninput="onUpperInput(this, v => tasadoraData.modelo = v)">
             </div>
             <div>
               <label>Versión</label>
               <input type="text" value="${d.version||''}" placeholder="XLE"
-                oninput="tasadoraData.version=this.value.toUpperCase();this.value=tasadoraData.version">
+                oninput="onUpperInput(this, v => tasadoraData.version = v)">
             </div>
             <div>
               <label>Año</label>
@@ -1729,7 +1752,7 @@ function renderTasadora() {
               <span class="text-amber-300 font-bold text-lg">%</span>
             </div>
             <div class="flex gap-2 mt-2">
-              ${[10,15,20,25].map(p=>`<button onclick="tasadoraData.margenGanancia=${p};render()" class="flex-1 border ${d.margenGanancia==p?'border-amber-500 bg-amber-500/20 text-amber-300':'border-slate-700 text-slate-400'} rounded py-1 text-xs font-semibold hover:border-amber-500">${p}%</button>`).join("")}
+              ${[10,15,20,25].map(p=>`<button onclick="tasadoraData.margenGanancia=${p};document.querySelectorAll('[data-margen-btn]').forEach(b=>{b.className=(parseInt(b.dataset.margenBtn)===${p}?'border-amber-500 bg-amber-500/20 text-amber-300':'border-slate-700 text-slate-400')+' flex-1 border rounded py-1 text-xs font-semibold hover:border-amber-500';});document.querySelector('[oninput*=margenGanancia]').value=${p};actualizarResultados()" data-margen-btn="${p}" class="flex-1 border ${d.margenGanancia==p?'border-amber-500 bg-amber-500/20 text-amber-300':'border-slate-700 text-slate-400'} rounded py-1 text-xs font-semibold hover:border-amber-500">${p}%</button>`).join("")}
             </div>
           </div>
 
@@ -2095,7 +2118,7 @@ function generarAlertasInteligentes() {
 }
 
 function renderAlertasBanner() {
-  const alertas = generarAlertasInteligentes();
+  const alertas = getMemoAlertas();  // Pack B: cache
   if (alertas.length === 0) return '';
 
   const colores = {
@@ -2225,7 +2248,7 @@ function calcularDemandaVsStock() {
   // Agrupar stock disponible
   const stock = {};
   vehs.filter(v => ["Disponible","Publicado"].includes(v.estado)).forEach(v => {
-    const carr = getCarroceria(v);
+    const carr = getCarroceriaSafe(v);  // Fix #10: case-insensitive
     const trans = normTrans(v.transmision);
     const key = `${carr}|${trans}`;
     stock[key] = stock[key] || { carr, trans, count:0, items:[] };
@@ -2328,44 +2351,37 @@ function generarInsightsPerformance(data) {
   const top = data[0];
   if (top.vendidos > 0 && top.margenRealTotal > 0) {
     insights.push({
-      tipo: 'success',
-      icon: '🏆',
+      tipo: 'success', icon: '🏆', marca: top.marca,
       texto: `<b>${top.marca}</b> es tu marca más rentable: ${money(top.margenRealTotal)} de margen total en ${top.vendidos} venta${top.vendidos>1?'s':''}.`,
-      accion: 'Considera priorizar la compra de esta marca en próximas tasaciones.'
+      accion: 'Click para ver el detalle de esta marca →'
     });
   }
 
   // Marca más rápida en vender
-  const rapidas = data.filter(m => m.vendidos > 0 && m.diasAvg > 0)
-                     .sort((a,b) => a.diasAvg - b.diasAvg);
+  const rapidas = data.filter(m => m.vendidos > 0 && m.diasAvg > 0).sort((a,b) => a.diasAvg - b.diasAvg);
   if (rapidas.length > 0 && rapidas[0].diasAvg <= 15) {
     insights.push({
-      tipo: 'success',
-      icon: '⚡',
+      tipo: 'success', icon: '⚡', marca: rapidas[0].marca,
       texto: `<b>${rapidas[0].marca}</b> rota muy rápido: ${Math.round(rapidas[0].diasAvg)} días promedio de stock.`,
-      accion: 'Velocidad de venta alta = menor riesgo de capital inmovilizado.'
+      accion: 'Click para ver el detalle →'
     });
   }
 
   // Marcas con pérdida
-  const perdidas = data.filter(m => m.vendidos > 0 && m.margenRealTotal < 0);
-  perdidas.forEach(p => {
+  data.filter(m => m.vendidos > 0 && m.margenRealTotal < 0).forEach(p => {
     insights.push({
-      tipo: 'danger',
-      icon: '🔴',
+      tipo: 'danger', icon: '🔴', marca: p.marca,
       texto: `<b>${p.marca}</b> generó pérdida: ${money(p.margenRealTotal)} en ${p.vendidos} venta${p.vendidos>1?'s':''}.`,
-      accion: 'Revisa costos ocultos, precios de compra o estrategia de publicación.'
+      accion: 'Click para revisar esta marca →'
     });
   });
 
   // Marcas con stock lento
-  const lentas = data.filter(m => m.vendidos > 0 && m.diasAvg > 60);
-  lentas.forEach(l => {
+  data.filter(m => m.vendidos > 0 && m.diasAvg > 60).forEach(l => {
     insights.push({
-      tipo: 'warning',
-      icon: '🐌',
+      tipo: 'warning', icon: '🐌', marca: l.marca,
       texto: `<b>${l.marca}</b> demora ${Math.round(l.diasAvg)} días promedio en venderse.`,
-      accion: 'Considera bajar el precio o revisar si el mercado está saturado para esta marca.'
+      accion: 'Click para ver el detalle →'
     });
   });
 
@@ -2373,7 +2389,7 @@ function generarInsightsPerformance(data) {
 }
 
 function renderPerformance() {
-  const data = calcularPerformanceMarcas();
+  const data = getMemoPerformance();  // Pack B: cache
   const totalVendidos = vehs.filter(v => v.estado === 'Vendido').length;
 
   if (totalVendidos === 0) {
@@ -2408,27 +2424,33 @@ function renderPerformance() {
       </div>
     </div>
 
-    <!-- KPIs Globales -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-      <div class="bg-gradient-to-br from-emerald-900/40 to-emerald-950/30 border border-emerald-500/40 rounded-xl p-4">
+    <!-- KPIs Globales — CADA CARD ES CLICKABLE → scrollea a la marca relevante en la tabla -->`;
+
+  // Identifico la marca relevante para cada KPI
+  const marcaMejorMargen   = [...data].sort((a,b)=>b.margenRealTotal - a.margenRealTotal)[0]?.marca || '';
+  const marcaMasRapida     = [...data].filter(m=>m.diasAvg>0).sort((a,b)=>a.diasAvg - b.diasAvg)[0]?.marca || marcaTop;
+  const marcaMasInversion  = [...data].sort((a,b)=>b.inversionTotal - a.inversionTotal)[0]?.marca || '';
+
+  html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div onclick="scrollToMarcaRow('${escAttr(marcaMejorMargen)}')" class="bg-gradient-to-br from-emerald-900/40 to-emerald-950/30 border border-emerald-500/40 rounded-xl p-4 cursor-pointer hover:scale-105 hover:border-emerald-400 transition-all">
         <div class="text-xs text-emerald-300 uppercase tracking-wider font-bold">💰 Margen Total</div>
         <div class="text-2xl font-black text-emerald-400 mt-1">${money(margenTotalGlobal)}</div>
-        <div class="text-[10px] text-emerald-300/60 mt-1">ROI ${roiGlobal.toFixed(1)}%</div>
+        <div class="text-[10px] text-emerald-300/60 mt-1">ROI ${roiGlobal.toFixed(1)}% · ${marcaMejorMargen ? 'ver '+marcaMejorMargen : ''} →</div>
       </div>
-      <div class="bg-gradient-to-br from-sky-900/40 to-sky-950/30 border border-sky-500/40 rounded-xl p-4">
+      <div onclick="scrollToMarcaRow('${escAttr(marcaTop)}')" class="bg-gradient-to-br from-sky-900/40 to-sky-950/30 border border-sky-500/40 rounded-xl p-4 cursor-pointer hover:scale-105 hover:border-sky-400 transition-all">
         <div class="text-xs text-sky-300 uppercase tracking-wider font-bold">🏆 Top Marca</div>
         <div class="text-2xl font-black text-sky-400 mt-1">${marcaTop}</div>
-        <div class="text-[10px] text-sky-300/60 mt-1">${data[0]?.vendidos || 0} ventas</div>
+        <div class="text-[10px] text-sky-300/60 mt-1">${data[0]?.vendidos || 0} ventas · ver detalle →</div>
       </div>
-      <div class="bg-gradient-to-br from-amber-900/40 to-amber-950/30 border border-amber-500/40 rounded-xl p-4">
+      <div onclick="scrollToMarcaRow('${escAttr(marcaMasRapida)}')" class="bg-gradient-to-br from-amber-900/40 to-amber-950/30 border border-amber-500/40 rounded-xl p-4 cursor-pointer hover:scale-105 hover:border-amber-400 transition-all">
         <div class="text-xs text-amber-300 uppercase tracking-wider font-bold">⏱ Días Avg</div>
         <div class="text-2xl font-black text-amber-400 mt-1">${Math.round(diasAvgGlobal)}d</div>
-        <div class="text-[10px] text-amber-300/60 mt-1">stock promedio</div>
+        <div class="text-[10px] text-amber-300/60 mt-1">stock promedio · ${marcaMasRapida ? 'ver '+marcaMasRapida : ''} →</div>
       </div>
-      <div class="bg-gradient-to-br from-purple-900/40 to-purple-950/30 border border-purple-500/40 rounded-xl p-4">
+      <div onclick="scrollToMarcaRow('${escAttr(marcaMasInversion)}')" class="bg-gradient-to-br from-purple-900/40 to-purple-950/30 border border-purple-500/40 rounded-xl p-4 cursor-pointer hover:scale-105 hover:border-purple-400 transition-all">
         <div class="text-xs text-purple-300 uppercase tracking-wider font-bold">📦 Inversión</div>
         <div class="text-2xl font-black text-purple-400 mt-1">${money(inversionGlobal)}</div>
-        <div class="text-[10px] text-purple-300/60 mt-1">acumulada total</div>
+        <div class="text-[10px] text-purple-300/60 mt-1">${marcaMasInversion ? 'ver '+marcaMasInversion : 'acumulada'} →</div>
       </div>
     </div>`;
 
@@ -2439,11 +2461,11 @@ function renderPerformance() {
       <div class="space-y-2">
         ${insights.map(i => {
           const colorMap = {
-            success: 'border-emerald-500/30 bg-emerald-500/5',
-            warning: 'border-amber-500/30 bg-amber-500/5',
-            danger:  'border-red-500/30 bg-red-500/5'
+            success: 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10',
+            warning: 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10',
+            danger:  'border-red-500/30 bg-red-500/5 hover:bg-red-500/10'
           };
-          return `<div class="border ${colorMap[i.tipo]} rounded-lg p-3 text-sm">
+          return `<div onclick="scrollToMarcaRow('${escAttr(i.marca)}')" class="border ${colorMap[i.tipo]} rounded-lg p-3 text-sm cursor-pointer transition-all hover:scale-[1.01]">
             <div class="flex items-start gap-2">
               <span class="text-lg">${i.icon}</span>
               <div class="flex-1">
@@ -2481,7 +2503,8 @@ function renderPerformance() {
             const diasColor   = m.diasAvg === 0 ? '#64748b' : m.diasAvg <= 20 ? '#4ade80' : m.diasAvg <= 45 ? '#f59e0b' : '#ef4444';
             const tasaColor   = m.tasaExito >= 80 ? '#4ade80' : m.tasaExito >= 50 ? '#f59e0b' : '#94a3b8';
             const roiColor    = m.roi > 10 ? '#4ade80' : m.roi > 0 ? '#fbbf24' : m.roi < 0 ? '#ef4444' : '#94a3b8';
-            return `<tr>
+            const safeId = m.marca.replace(/[^A-Z0-9]/gi, '');
+            return `<tr id="perf-row-${safeId}" class="clickable" onclick="verInventarioPorMarca('${escAttr(m.marca)}')" title="Click para ver ${m.marca} en Inventario">
               <td><div class="font-bold">${m.marca}</div><div class="text-slate-500 text-xs">${m.modelosCount} modelo${m.modelosCount>1?'s':''}</div></td>
               <td class="text-right">${m.total}</td>
               <td class="text-right text-emerald-400 font-bold">${m.vendidos}</td>
@@ -2516,100 +2539,297 @@ function renderPerformance() {
 
 function renderSmartPricing() {
   const c = pricingCalc;
-  const r = c.marca ? calcularPrecioSugerido(c) : null;
-
-  let resultadoHtml = '';
-  if (r && r.confianza === 'sin_datos') {
-    resultadoHtml = `<div class="bg-slate-800/40 border border-slate-700 rounded-lg p-4 text-center">
-      <div class="text-3xl mb-2">📭</div>
-      <div class="text-slate-400 text-sm">${r.mensaje}</div>
-    </div>`;
-  } else if (r) {
-    const confLabel = { alta:'ALTA', media:'MEDIA', baja:'BAJA' };
-    resultadoHtml = `
-      <div class="bg-gradient-to-br from-emerald-900/30 to-blue-900/20 border-2 border-emerald-500/50 rounded-xl p-5">
-        <div class="text-xs text-emerald-300 uppercase tracking-wider font-bold mb-2">💰 Precio sugerido de publicación</div>
-        <div class="text-5xl font-black text-white tracking-tight" style="text-shadow:0 0 25px rgba(16,185,129,.4)">${money(r.precioSugerido)}</div>
-        <div class="text-xs text-slate-400 mt-1">Rango histórico: ${money(r.precioMin)} – ${money(r.precioMax)}</div>
-      </div>
-      <div class="grid grid-cols-3 gap-2 mt-3">
-        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
-          <div class="text-[10px] text-slate-500 uppercase tracking-wider">Margen esperado</div>
-          <div class="text-base font-bold text-emerald-400 mt-1">${money(r.margenEsperado)}</div>
-        </div>
-        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
-          <div class="text-[10px] text-slate-500 uppercase tracking-wider">Días estimados</div>
-          <div class="text-base font-bold text-amber-400 mt-1">${r.diasEsperados}d</div>
-        </div>
-        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
-          <div class="text-[10px] text-slate-500 uppercase tracking-wider">Confianza</div>
-          <div class="text-base font-bold mt-1" style="color:${r.color}">${confLabel[r.confianza]}</div>
-        </div>
-      </div>
-      <div class="text-[11px] text-slate-500 mt-2 text-center">Basado en <b class="text-slate-300">${r.basadoEn}</b> vehículo${r.basadoEn>1?'s':''} similar${r.basadoEn>1?'es':''} vendido${r.basadoEn>1?'s':''} en tu histórico</div>
-      ${r.matches && r.matches.length > 0 ? `
-        <details class="mt-3">
-          <summary class="text-xs text-sky-400 cursor-pointer hover:text-sky-300">Ver ${r.matches.length} vehículos de referencia →</summary>
-          <div class="mt-2 space-y-1">
-            ${r.matches.map(v => `<div class="bg-slate-800/40 border border-slate-700/50 rounded p-2 text-xs flex justify-between flex-wrap gap-1">
-              <span>${v.marca} ${v.modelo} ${v.version || ''} ${v.anio} · ${parseInt(v.kilometraje).toLocaleString()}km</span>
-              <span class="text-emerald-400 font-bold">${money(v.precioVenta)} en ${calcDiasStock(v)}d</span>
-            </div>`).join('')}
-          </div>
-        </details>
-      ` : ''}
-    `;
-  } else {
-    resultadoHtml = `<div class="bg-slate-800/40 border border-slate-700 rounded-lg p-6 text-center">
-      <div class="text-3xl mb-2">💡</div>
-      <div class="text-slate-400 text-sm">Ingresa la marca (mínimo) para ver una sugerencia de precio</div>
-    </div>`;
-  }
-
   return `<div class="mt-6 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
     <div class="px-4 py-3 border-b border-slate-800">
       <h3 class="text-sm font-bold text-slate-300">💰 Smart Pricing — Sugerencia basada en histórico</h3>
       <p class="text-xs text-slate-500 mt-1">Ingresa los datos de un vehículo nuevo y te diré a qué precio publicarlo según tus ventas pasadas</p>
     </div>
     <div class="p-4 grid lg:grid-cols-[300px_1fr] gap-4">
-      <!-- INPUTS -->
+      <!-- INPUTS — uso onUpperInput que preserva el cursor -->
       <div class="space-y-3">
         <div>
           <label class="text-[10px] text-slate-500 uppercase tracking-wider">Marca *</label>
-          <input type="text" value="${c.marca}" placeholder="ej. NISSAN"
-            oninput="pricingCalc.marca=this.value.toUpperCase();this.value=pricingCalc.marca;render()"
+          <input type="text" id="spMarca" value="${c.marca}" placeholder="ej. NISSAN"
+            oninput="onUpperInput(this, v => { pricingCalc.marca = v; actualizarSmartPricing(); })"
             class="uppercase">
         </div>
         <div>
           <label class="text-[10px] text-slate-500 uppercase tracking-wider">Modelo</label>
-          <input type="text" value="${c.modelo}" placeholder="ej. KICKS"
-            oninput="pricingCalc.modelo=this.value.toUpperCase();this.value=pricingCalc.modelo;render()"
+          <input type="text" id="spModelo" value="${c.modelo}" placeholder="ej. KICKS"
+            oninput="onUpperInput(this, v => { pricingCalc.modelo = v; actualizarSmartPricing(); })"
             class="uppercase">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="text-[10px] text-slate-500 uppercase tracking-wider">Año</label>
-            <input type="number" min="1990" max="2030" value="${c.anio}" placeholder="2022"
-              oninput="pricingCalc.anio=parseInt(this.value)||'';render()">
+            <input type="number" id="spAnio" min="1990" max="2030" value="${c.anio}" placeholder="2022"
+              oninput="pricingCalc.anio=parseInt(this.value)||'';actualizarSmartPricing()">
           </div>
           <div>
             <label class="text-[10px] text-slate-500 uppercase tracking-wider">KM</label>
-            <input type="number" min="0" value="${c.km}" placeholder="50000"
-              oninput="pricingCalc.km=parseInt(this.value)||'';render()">
+            <input type="number" id="spKm" min="0" value="${c.km}" placeholder="50000"
+              oninput="pricingCalc.km=parseInt(this.value)||'';actualizarSmartPricing()">
           </div>
         </div>
-        <button onclick="pricingCalc={marca:'',modelo:'',anio:'',km:''};render()"
+        <button onclick="pricingCalc={marca:'',modelo:'',anio:'',km:''};document.getElementById('spMarca').value='';document.getElementById('spModelo').value='';document.getElementById('spAnio').value='';document.getElementById('spKm').value='';actualizarSmartPricing()"
           class="w-full text-xs text-slate-500 border border-slate-700 rounded py-1.5">🗑 Limpiar</button>
       </div>
 
-      <!-- RESULTADO -->
-      <div>${resultadoHtml}</div>
+      <!-- RESULTADO — solo este div se actualiza al teclear -->
+      <div id="smartPricingResult">${renderSmartPricingResult()}</div>
     </div>
   </div>`;
 }
 
+// Genera SOLO el HTML del resultado (sin inputs ni labels)
+function renderSmartPricingResult() {
+  const c = pricingCalc;
+  if (!c.marca) {
+    return `<div class="bg-slate-800/40 border border-slate-700 rounded-lg p-6 text-center">
+      <div class="text-3xl mb-2">💡</div>
+      <div class="text-slate-400 text-sm">Ingresa la marca (mínimo) para ver una sugerencia de precio</div>
+    </div>`;
+  }
+
+  const r = calcularPrecioSugerido(c);
+
+  if (r.confianza === 'sin_datos') {
+    return `<div class="bg-slate-800/40 border border-slate-700 rounded-lg p-4 text-center">
+      <div class="text-3xl mb-2">📭</div>
+      <div class="text-slate-400 text-sm">${r.mensaje}</div>
+    </div>`;
+  }
+
+  const confLabel = { alta:'ALTA', media:'MEDIA', baja:'BAJA' };
+  return `
+    <div class="bg-gradient-to-br from-emerald-900/30 to-blue-900/20 border-2 border-emerald-500/50 rounded-xl p-5">
+      <div class="text-xs text-emerald-300 uppercase tracking-wider font-bold mb-2">💰 Precio sugerido de publicación</div>
+      <div class="text-5xl font-black text-white tracking-tight" style="text-shadow:0 0 25px rgba(16,185,129,.4)">${money(r.precioSugerido)}</div>
+      <div class="text-xs text-slate-400 mt-1">Rango histórico: ${money(r.precioMin)} – ${money(r.precioMax)}</div>
+    </div>
+    <div class="grid grid-cols-3 gap-2 mt-3">
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
+        <div class="text-[10px] text-slate-500 uppercase tracking-wider">Margen esperado</div>
+        <div class="text-base font-bold text-emerald-400 mt-1">${money(r.margenEsperado)}</div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
+        <div class="text-[10px] text-slate-500 uppercase tracking-wider">Días estimados</div>
+        <div class="text-base font-bold text-amber-400 mt-1">${r.diasEsperados}d</div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
+        <div class="text-[10px] text-slate-500 uppercase tracking-wider">Confianza</div>
+        <div class="text-base font-bold mt-1" style="color:${r.color}">${confLabel[r.confianza]}</div>
+      </div>
+    </div>
+    <div class="text-[11px] text-slate-500 mt-2 text-center">Basado en <b class="text-slate-300">${r.basadoEn}</b> vehículo${r.basadoEn>1?'s':''} similar${r.basadoEn>1?'es':''} vendido${r.basadoEn>1?'s':''} en tu histórico</div>
+    ${r.matches && r.matches.length > 0 ? `
+      <details class="mt-3">
+        <summary class="text-xs text-sky-400 cursor-pointer hover:text-sky-300">Ver ${r.matches.length} vehículos de referencia →</summary>
+        <div class="mt-2 space-y-1">
+          ${r.matches.map(v => `<div class="bg-slate-800/40 border border-slate-700/50 rounded p-2 text-xs flex justify-between flex-wrap gap-1">
+            <span>${v.marca} ${v.modelo} ${v.version || ''} ${v.anio} · ${parseInt(v.kilometraje).toLocaleString()}km</span>
+            <span class="text-emerald-400 font-bold">${money(v.precioVenta)} en ${calcDiasStock(v)}d</span>
+          </div>`).join('')}
+        </div>
+      </details>
+    ` : ''}
+  `;
+}
+
+// Actualización quirúrgica: solo refresca el panel de resultado, NO el formulario
+function actualizarSmartPricing() {
+  const panel = document.getElementById('smartPricingResult');
+  if (panel) panel.innerHTML = renderSmartPricingResult();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Navegación inteligente del módulo Performance
+// ═══════════════════════════════════════════════════════════════
+
+// Scroll suave a fila de marca + highlight temporal
+function scrollToMarcaRow(marca) {
+  if (!marca) return;
+  const id = 'perf-row-' + marca.replace(/[^A-Z0-9]/gi, '');
+  const row = document.getElementById(id);
+  if (row) {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('highlight-row');
+    setTimeout(() => row.classList.remove('highlight-row'), 2500);
+  }
+}
+
+// Click en marca de tabla → filtra Inventario por esa marca
+function verInventarioPorMarca(marca) {
+  searchVeh = marca;
+  filterEstado = 'Todos';
+  currentTab = 'inventario';
+  render();
+}
+
+// Click en heatmap → filtra CRM por carrocería buscada
+function verClientesPorCarroceria(carr) {
+  filterStatus = 'Todos';
+  searchCli = carr;
+  currentTab = 'crm';
+  render();
+}
+
+// Click en oportunidad de heatmap → muestra matches potenciales
+function verOportunidadHeatmap(carr, trans) {
+  toast(`🎯 ${carr} ${trans} — revisa CRM para ver clientes esperando`, 'success');
+  filterStatus = 'Caliente';
+  currentTab = 'crm';
+  render();
+}
+
+// Helper para input uppercase que PRESERVA la posición del cursor
+function onUpperInput(el, callback) {
+  const start = el.selectionStart;
+  const end   = el.selectionEnd;
+  const upper = el.value.toUpperCase();
+  if (upper !== el.value) {
+    el.value = upper;
+    try { el.setSelectionRange(start, end); } catch(e) {}
+  }
+  callback(upper);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS DEFENSIVOS · sanitización, parsing seguro, escapes
+// ═══════════════════════════════════════════════════════════════
+
+// Escape para evitar XSS al renderizar texto en HTML
+function escHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Escape para usar dentro de atributos HTML con comilla simple
+function escAttr(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'\\\''
+  })[c]);
+}
+
+// Parsea un número manejando formatos LATAM (12,500.00) y NaN
+function parseMoney(v) {
+  if (typeof v === 'number') return isNaN(v) ? 0 : v;
+  if (!v) return 0;
+  // Quita espacios y separadores de miles
+  const cleaned = String(v).replace(/\s/g, '').replace(/,/g, '');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+
+// Defensa contra NaN en formato
+function safeNum(v, fallback = 0) {
+  const n = parseFloat(v);
+  return isNaN(n) ? fallback : n;
+}
+
+// Carrocería MAP case-insensitive
+const _CARROCERIA_MAP_LC = {};
+Object.keys(CARROCERIA_MAP).forEach(k => _CARROCERIA_MAP_LC[k.toUpperCase()] = CARROCERIA_MAP[k]);
+function getCarroceriaSafe(v) {
+  const m = String(v.modelo || '').toUpperCase().trim();
+  return _CARROCERIA_MAP_LC[m] || 'Sedán';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PACK B + C · Utilidades de robustez y polish
+// ═══════════════════════════════════════════════════════════════
+
+// MEMOIZACIÓN simple por hash de vehs/clis
+const _memoCache = { perf: null, perfKey: null, alertas: null, alertasKey: null, demanda: null, demandaKey: null };
+
+function _hashVehs() { return vehs.length + '|' + vehs.filter(v=>v.estado==='Vendido').length + '|' + vehs.reduce((s,v)=>s+(parseFloat(v.precioVenta)||0),0); }
+function _hashAll()  { return _hashVehs() + '|' + clis.length + '|' + clis.filter(c=>['Caliente','Tibio'].includes(c.status)).length; }
+
+function getMemoPerformance() {
+  const k = _hashVehs();
+  if (_memoCache.perfKey === k && _memoCache.perf) return _memoCache.perf;
+  _memoCache.perf = calcularPerformanceMarcas();
+  _memoCache.perfKey = k;
+  return _memoCache.perf;
+}
+function getMemoAlertas() {
+  const k = _hashAll();
+  if (_memoCache.alertasKey === k && _memoCache.alertas) return _memoCache.alertas;
+  _memoCache.alertas = generarAlertasInteligentes();
+  _memoCache.alertasKey = k;
+  return _memoCache.alertas;
+}
+function getMemoDemanda() {
+  const k = _hashAll();
+  if (_memoCache.demandaKey === k && _memoCache.demanda) return _memoCache.demanda;
+  _memoCache.demanda = calcularDemandaVsStock();
+  _memoCache.demandaKey = k;
+  return _memoCache.demanda;
+}
+
+// Invalidar memo cuando se actualizan datos
+function invalidarMemos() { _memoCache.perfKey = null; _memoCache.alertasKey = null; _memoCache.demandaKey = null; }
+
+// TIMEOUT wrapper para google.script.run
+function gsCallWithTimeout(fnName, payload, opts = {}) {
+  const timeoutMs = opts.timeout || 30000;
+  return new Promise((resolve, reject) => {
+    if (typeof google === "undefined" || !google.script || !google.script.run) {
+      return reject(new Error('Backend no disponible'));
+    }
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(new Error('Timeout ' + (timeoutMs/1000) + 's · servidor no responde'));
+    }, timeoutMs);
+    const runner = google.script.run
+      .withSuccessHandler(r => { if (done) return; done = true; clearTimeout(timer); resolve(r); })
+      .withFailureHandler(e => { if (done) return; done = true; clearTimeout(timer); reject(e); });
+    if (payload === undefined) runner[fnName](); else runner[fnName](payload);
+  });
+}
+
+// TOAST QUEUE · limita a 3 visibles, descarta los más viejos
+const _MAX_TOASTS = 3;
+function _toastQueueCleanup() {
+  const root = document.getElementById('toastRoot');
+  if (!root) return;
+  while (root.children.length > _MAX_TOASTS) root.removeChild(root.firstChild);
+}
+
+// OFFLINE DETECTION
+let _offlineBannerShown = false;
+function checkOnlineStatus() {
+  const offline = !navigator.onLine;
+  let banner = document.getElementById('offlineBanner');
+  if (offline && !banner) {
+    banner = document.createElement('div');
+    banner.id = 'offlineBanner';
+    banner.className = 'fixed top-0 left-0 right-0 bg-red-600 text-white text-center py-2 text-sm font-bold z-[4000] shadow-lg';
+    banner.innerHTML = '🔌 SIN CONEXIÓN · Tus cambios no se guardarán hasta volver online';
+    document.body.appendChild(banner);
+    _offlineBannerShown = true;
+  } else if (!offline && banner) {
+    banner.remove();
+    if (_offlineBannerShown) {
+      toast('✅ Conexión recuperada', 'success');
+      _offlineBannerShown = false;
+    }
+  }
+}
+window.addEventListener('online',  checkOnlineStatus);
+window.addEventListener('offline', checkOnlineStatus);
+setInterval(checkOnlineStatus, 5000);
+
 function renderHeatmapDemanda() {
-  const data = calcularDemandaVsStock();
+  const data = getMemoDemanda();  // Pack B: cache
   if (data.length === 0) return '';
 
   const colorEstado = {
@@ -2633,7 +2853,7 @@ function renderHeatmapDemanda() {
         <div class="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wider">🎯 Oportunidades de compra</div>
         <div class="space-y-2">
           ${oportunidades.map(d => `
-            <div class="bg-emerald-500/10 border border-emerald-500/40 rounded-lg p-3 text-sm">
+            <div onclick="verOportunidadHeatmap('${escAttr(d.carr)}','${escAttr(d.trans)}')" class="bg-emerald-500/10 border border-emerald-500/40 rounded-lg p-3 text-sm cursor-pointer hover:bg-emerald-500/15 hover:border-emerald-400 transition-all">
               <div class="flex justify-between items-center flex-wrap gap-2">
                 <div>
                   <span class="font-bold text-white">${d.carr}</span>
@@ -2645,7 +2865,7 @@ function renderHeatmapDemanda() {
                   <span class="text-red-400">📦 ${d.stock} stock</span>
                 </div>
               </div>
-              <div class="text-xs text-emerald-300 mt-1">💡 ${d.sugerencia}</div>
+              <div class="text-xs text-emerald-300 mt-1">💡 ${d.sugerencia} <span class="text-slate-500">→ ver clientes</span></div>
             </div>
           `).join('')}
         </div>
@@ -2667,7 +2887,7 @@ function renderHeatmapDemanda() {
           <tbody>
             ${data.map(d => {
               const c = colorEstado[d.estado];
-              return `<tr>
+              return `<tr class="clickable" onclick="verClientesPorCarroceria('${escAttr(d.carr)}')" title="Click para ver clientes buscando ${d.carr}">
                 <td class="font-semibold">${d.carr}</td>
                 <td class="text-slate-400">${d.trans}</td>
                 <td class="text-right text-emerald-400 font-bold">${d.demanda}</td>
@@ -3411,6 +3631,7 @@ function generarSessionId() {
   return `SES-${yyyymmdd}-${random}`;
 }
 
+let _sessionBadgeInterval = null;
 function iniciarSession() {
   sessionId = generarSessionId();
   sessionStartTime = Date.now();
@@ -3421,7 +3642,9 @@ function iniciarSession() {
   // Detectar cambio de tab/ventana oculta para no contar tiempo en background
   document.addEventListener('visibilitychange', onVisibilityChange);
   resetIdleTimer();
-  setInterval(updateSessionBadge, 60000);
+  // Limpia interval previo si existía (evita leaks en logout/login)
+  if (_sessionBadgeInterval) clearInterval(_sessionBadgeInterval);
+  _sessionBadgeInterval = setInterval(updateSessionBadge, 60000);
 }
 
 let _lastHiddenAt = null;
@@ -3502,6 +3725,15 @@ function autoCerrarSesion() {
 function cerrarSesionForzado() {
   if (idleTimer) clearTimeout(idleTimer);
   if (warningTimer) clearTimeout(warningTimer);
+  if (_sessionBadgeInterval) { clearInterval(_sessionBadgeInterval); _sessionBadgeInterval = null; }  // Fix memory leak
+  if (typeof invalidarMemos === 'function') invalidarMemos();  // Cache no debe persistir entre sesiones
+
+  // Fase 1 · Invalida el token en backend (fire and forget)
+  if (sessionToken && typeof google !== "undefined" && google.script && google.script.run) {
+    try { google.script.run.cerrarSesionBackend(sessionToken); } catch(e) {}
+  }
+  sessionToken = null;
+
   usuarioActual = null;
   sessionId = null;
   sessionStartTime = null;
@@ -3522,29 +3754,75 @@ function updateSessionBadge() {
   badge.textContent = `🆔 ${sessionId} · ${minutos}m`;
 }
 
-function intentarLogin() {
-  const pin = document.getElementById("pinInput").value.trim();
-  const err = document.getElementById("loginError");
-  const usuario = USUARIOS[pin];
-  if(!usuario) {
-    err.textContent = "PIN incorrecto. Intente nuevamente.";
-    err.classList.remove("hidden");
-    document.getElementById("pinInput").value = "";
-    return;
-  }
+// Fase 1 · Token de sesión del backend (vacío hasta autenticar)
+let sessionToken = null;
+
+function _completarLogin(usuario, token) {
   usuarioActual = usuario;
+  sessionToken = token || null;
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appWrapper").classList.remove("hidden");
   aplicarRBAC();
   iniciarSession();
   updateSessionBadge();
   currentTab = usuario.tabInicial;
-  if(usuario.rol === "admin") {
+  if (usuario.rol === "admin") {
     sincronizar();
   } else {
     cargando = false;
     showLoader(false);
     render();
+  }
+}
+
+function intentarLogin() {
+  const pin = document.getElementById("pinInput").value.trim();
+  const err = document.getElementById("loginError");
+  if (!pin) {
+    err.textContent = "Ingresa un PIN.";
+    err.classList.remove("hidden");
+    return;
+  }
+
+  // Botón disable + spinner
+  const btn = document.querySelector('#loginScreen button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Verificando..."; }
+
+  // 1. Intenta verificar con BACKEND (PIN hash + token)
+  google.script.run
+    .withSuccessHandler(r => {
+      if (btn) { btn.disabled = false; btn.textContent = "Ingresar"; }
+      if (r && r.exito && r.token) {
+        // ✅ Backend auth OK
+        err.classList.add("hidden");
+        document.getElementById("pinInput").value = "";
+        _completarLogin({
+          rol: r.rol, nombre: r.nombre, color: r.color, tabInicial: r.tabInicial
+        }, r.token);
+      } else {
+        _fallbackLoginHardcoded(pin, err, r ? r.error : null);
+      }
+    })
+    .withFailureHandler(e => {
+      if (btn) { btn.disabled = false; btn.textContent = "Ingresar"; }
+      // Si backend no responde → fallback al PIN hardcoded
+      _fallbackLoginHardcoded(pin, err, 'Backend no disponible: ' + (e.message || e));
+    })
+    .verificarPin(pin);
+}
+
+// Fallback: si backend no inicializado o no responde, usa el sistema viejo
+function _fallbackLoginHardcoded(pin, err, motivo) {
+  const usuario = USUARIOS[pin];
+  if (usuario) {
+    err.classList.add("hidden");
+    document.getElementById("pinInput").value = "";
+    _completarLogin(usuario, null);  // sin token (modo legacy)
+    if (motivo) console.warn('Login en modo legacy:', motivo);
+  } else {
+    err.textContent = "PIN incorrecto. Intente nuevamente.";
+    err.classList.remove("hidden");
+    document.getElementById("pinInput").value = "";
   }
 }
 
@@ -3560,6 +3838,9 @@ function aplicarRBAC() {
     }
   });
   document.getElementById("btnSync").style.display = esAdmin ? "" : "none";
+  // Mostrar "Cambiar PIN" solo si tenemos token del backend (no en modo legacy)
+  const btnPin = document.getElementById("btnCambiarPin");
+  if (btnPin) btnPin.classList.toggle("hidden", !sessionToken);
   const badge = document.getElementById("userBadge");
   badge.textContent = `${usuarioActual.rol === "admin" ? "👑" : "🔧"} ${usuarioActual.nombre}`;
   badge.style.background = usuarioActual.color + "22";
@@ -3573,6 +3854,74 @@ function aplicarRBAC() {
 function cerrarSesion() {
   if(!confirm("¿Cerrar sesión?")) return;
   cerrarSesionForzado();
+}
+
+// Fase 1 · Modal para cambiar PIN
+function abrirCambiarPin() {
+  if (!sessionToken) {
+    toast("⚠️ Esta función requiere auth con backend", "error");
+    return;
+  }
+  modal("🔑 Cambiar PIN", `
+    <form id="cambiarPinForm" onsubmit="event.preventDefault();confirmarCambiarPin()">
+      <div class="mb-3">
+        <label>PIN actual</label>
+        <input type="password" id="pinActualInput" autocomplete="current-password" placeholder="••••" autofocus>
+      </div>
+      <div class="mb-3">
+        <label>PIN nuevo (mín. 4 caracteres)</label>
+        <input type="password" id="pinNuevoInput" autocomplete="new-password" placeholder="••••">
+      </div>
+      <div class="mb-3">
+        <label>Confirmar PIN nuevo</label>
+        <input type="password" id="pinConfirmInput" autocomplete="new-password" placeholder="••••">
+      </div>
+      <div id="cambiarPinError" class="hidden text-red-400 text-xs mb-2"></div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cancelar</button>
+        <button type="submit" id="btnConfirmarPin" class="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-2 text-sm font-semibold">Cambiar PIN</button>
+      </div>
+    </form>
+  `);
+}
+
+function confirmarCambiarPin() {
+  const pinActual  = document.getElementById("pinActualInput").value;
+  const pinNuevo   = document.getElementById("pinNuevoInput").value;
+  const pinConfirm = document.getElementById("pinConfirmInput").value;
+  const errEl      = document.getElementById("cambiarPinError");
+
+  if (pinNuevo.length < 4) {
+    errEl.textContent = "El PIN nuevo debe tener al menos 4 caracteres";
+    errEl.classList.remove("hidden");
+    return;
+  }
+  if (pinNuevo !== pinConfirm) {
+    errEl.textContent = "Los PINs nuevos no coinciden";
+    errEl.classList.remove("hidden");
+    return;
+  }
+
+  const btn = document.getElementById("btnConfirmarPin");
+  if (btn) { btn.disabled = true; btn.textContent = "Cambiando..."; }
+
+  google.script.run
+    .withSuccessHandler(r => {
+      if (btn) { btn.disabled = false; btn.textContent = "Cambiar PIN"; }
+      if (r && r.exito) {
+        toast("✅ PIN actualizado · usa el nuevo en próximo login", "success");
+        closeModal();
+      } else {
+        errEl.textContent = "⚠️ " + (r ? r.error : 'Error desconocido');
+        errEl.classList.remove("hidden");
+      }
+    })
+    .withFailureHandler(e => {
+      if (btn) { btn.disabled = false; btn.textContent = "Cambiar PIN"; }
+      errEl.textContent = "⚠️ " + (e.message || e);
+      errEl.classList.remove("hidden");
+    })
+    .cambiarPin({ token: sessionToken, pinActual, pinNuevo });
 }
 
 document.querySelectorAll(".tab-btn").forEach(b=>{
