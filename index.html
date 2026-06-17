@@ -4,29 +4,228 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AutoCRM - Inventario & Clientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  body { font-family: system-ui, -apple-system, sans-serif; background:#020617; }
-  .tab-btn.active { color:#38bdf8; border-bottom:2px solid #38bdf8; }
-  input, select, textarea { background:#1e293b; border:1px solid #334155; color:#e2e8f0; border-radius:6px; padding:7px 10px; font-size:13px; outline:none; width:100%; }
-  input:focus, select:focus, textarea:focus { border-color:#3b82f6; }
-  input[readonly] { background:#0f172a; color:#64748b; }
-  label { font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; }
-  .badge { border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700; display:inline-block; }
-  table { border-collapse:collapse; width:100%; font-size:12px; }
-  th { text-align:left; padding:6px 10px; color:#64748b; font-weight:600; border-bottom:1px solid #1e293b; white-space:nowrap; }
-  td { padding:8px 10px; border-bottom:1px solid #0f172a; }
-  tr.clickable { cursor:pointer; }
-  tr.clickable:hover td { background:#0f172a; }
-  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px; }
-  .modal-box { background:#0f172a; border:1px solid #334155; border-radius:12px; width:100%; max-width:860px; max-height:90vh; overflow-y:auto; padding:24px; }
-  .section-title { font-size:12px; color:#38bdf8; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #1e293b; }
-  .spinner { width:40px; height:40px; border:3px solid #1e293b; border-top:3px solid #38bdf8; border-radius:50%; animation: spin 0.8s linear infinite; margin:0 auto; }
+  /* ============================================================
+     SISTEMA VISUAL · AutoCRM LCD Group
+     Paleta: slate (base) · sky/emerald/indigo/amber (acentos)
+     ============================================================ */
+  :root {
+    --c-bg:           #020617;
+    --c-surface-1:    #0b1220;   /* cards primarias */
+    --c-surface-2:    #111c30;   /* cards secundarias / hover */
+    --c-surface-3:    #1a2740;   /* inputs */
+    --c-border:       #1e293b;
+    --c-border-soft:  #243047;
+    --c-border-focus: #3b82f6;
+    --c-text:         #e2e8f0;
+    --c-text-mute:    #94a3b8;
+    --c-text-faint:   #64748b;
+    --c-accent:       #38bdf8;
+    --c-accent-soft:  rgba(56,189,248,.14);
+    --shadow-soft:    0 1px 0 rgba(255,255,255,.03), 0 4px 14px rgba(0,0,0,.35);
+    --shadow-pop:     0 1px 0 rgba(255,255,255,.04), 0 12px 32px rgba(0,0,0,.55);
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(1100px 540px at 80% -10%, rgba(56,189,248,.07), transparent 60%),
+      radial-gradient(900px 480px at -10% 100%, rgba(99,102,241,.06), transparent 60%),
+      var(--c-bg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ───────── Scrollbar dark ───────── */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #334155; background-clip: padding-box; border: 2px solid transparent; }
+
+  /* ───────── Tabs estilo pill ───────── */
+  .tab-btn {
+    position: relative;
+    border-radius: 8px;
+    margin: 6px 2px;
+    padding: 7px 12px !important;
+    transition: color .15s ease, background .15s ease;
+  }
+  .tab-btn:hover { color: #cbd5e1; background: rgba(255,255,255,.03); }
+  .tab-btn.active {
+    color: #fff !important;
+    background: linear-gradient(180deg, rgba(56,189,248,.18), rgba(56,189,248,.08));
+    box-shadow: inset 0 0 0 1px rgba(56,189,248,.35), 0 0 24px -8px rgba(56,189,248,.55);
+    border-bottom: none !important;
+  }
+
+  /* ───────── Forms ───────── */
+  input, select, textarea {
+    background: var(--c-surface-3);
+    border: 1px solid var(--c-border-soft);
+    color: var(--c-text);
+    border-radius: 8px;
+    padding: 8px 11px;
+    font-size: 13px;
+    outline: none;
+    width: 100%;
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  input:hover:not(:focus), select:hover:not(:focus), textarea:hover:not(:focus) { border-color: #2f3e5e; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--c-border-focus);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+    background: #1d2a44;
+  }
+  input[readonly] { background:#0a1424; color: var(--c-text-faint); }
+  input::placeholder, textarea::placeholder { color: #475569; }
+  label {
+    font-size: 10.5px;
+    color: var(--c-text-mute);
+    text-transform: uppercase;
+    letter-spacing: 1.1px;
+    font-weight: 600;
+  }
+
+  /* ───────── Badges ───────── */
+  .badge {
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 10.5px;
+    font-weight: 700;
+    display: inline-block;
+    letter-spacing: .3px;
+  }
+
+  /* ───────── Tablas ───────── */
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th {
+    text-align: left;
+    padding: 9px 12px;
+    color: var(--c-text-faint);
+    font-weight: 600;
+    border-bottom: 1px solid var(--c-border);
+    white-space: nowrap;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid #0a1322; }
+  tr.clickable { cursor: pointer; transition: background .12s ease; }
+  tr.clickable:hover td { background: rgba(56,189,248,.04); }
+  tr.clickable:hover td:first-child { box-shadow: inset 3px 0 0 var(--c-accent); }
+
+  /* ───────── Modales ───────── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(2,6,23,.78);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .modal-box {
+    background: linear-gradient(180deg, #0f1a2e 0%, #0b1220 100%);
+    border: 1px solid var(--c-border-soft);
+    border-radius: 14px;
+    width: 100%; max-width: 860px; max-height: 90vh;
+    overflow-y: auto; padding: 26px;
+    box-shadow: var(--shadow-pop);
+  }
+  .section-title {
+    font-size: 11px;
+    color: var(--c-accent);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.3px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--c-border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::before {
+    content: '';
+    width: 3px; height: 12px;
+    background: var(--c-accent);
+    border-radius: 2px;
+  }
+
+  /* ───────── Cards ───────── */
+  .card-elevated {
+    background: linear-gradient(180deg, var(--c-surface-1) 0%, var(--c-surface-2) 100%);
+    border: 1px solid var(--c-border-soft);
+    border-radius: 14px;
+    box-shadow: var(--shadow-soft);
+    transition: transform .18s cubic-bezier(.16,1,.3,1), border-color .18s ease, box-shadow .18s ease;
+  }
+  .card-elevated:hover { border-color: #2c3a55; box-shadow: var(--shadow-pop); }
+  .card-flat {
+    background: var(--c-surface-1);
+    border: 1px solid var(--c-border);
+    border-radius: 12px;
+  }
+
+  /* ───────── Spinner ───────── */
+  .spinner {
+    width: 44px; height: 44px;
+    border: 3px solid #1e293b;
+    border-top: 3px solid var(--c-accent);
+    border-right: 3px solid var(--c-accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+    box-shadow: 0 0 30px -10px rgba(56,189,248,.6);
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes highlightPulse { 0%,100% { background:transparent; } 30% { background:rgba(56,189,248,.3); } 60% { background:rgba(56,189,248,.15); } }
+  @keyframes highlightPulse { 0%,100% { background: transparent; } 30% { background: rgba(56,189,248,.28); } 60% { background: rgba(56,189,248,.12); } }
   tr.highlight-row td { animation: highlightPulse 2.5s ease-out; }
-  .clickable-card { cursor:pointer; transition: all .15s ease; }
-  .clickable-card:hover { transform: scale(1.02); border-color: rgba(56,189,248,.5); }
+
+  /* ───────── Hover de cards genéricas ───────── */
+  .clickable-card { cursor: pointer; transition: transform .18s cubic-bezier(.16,1,.3,1), border-color .18s ease, box-shadow .18s ease; }
+  .clickable-card:hover { transform: translateY(-1px); border-color: rgba(56,189,248,.45); box-shadow: 0 8px 28px -10px rgba(56,189,248,.35); }
+
+  /* ───────── Page heading ───────── */
+  .page-heading {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+    background: linear-gradient(180deg, #f1f5f9 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: #f1f5f9;
+  }
+
+  /* ───────── Buttons primarios ───────── */
+  .btn-primary {
+    background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 1px 0 rgba(255,255,255,.15) inset, 0 4px 14px -4px rgba(37,99,235,.5);
+    transition: filter .15s ease, transform .1s ease;
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:active { transform: translateY(1px); }
+
+  /* Animaciones profesionales para modales y toasts */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes scaleIn { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+  .anim-fadeIn { animation: fadeIn .2s ease-out; }
+  .anim-fadeOut { animation: fadeOut .2s ease-out forwards; }
+  .anim-scaleIn { animation: scaleIn .25s cubic-bezier(.16,1,.3,1); }
+  .modal-overlay { animation: fadeIn .2s ease-out; }
+  .modal-box { animation: scaleIn .25s cubic-bezier(.16,1,.3,1); }
+  .toast { animation: slideInRight .3s cubic-bezier(.16,1,.3,1); }
   .toast { position:fixed; bottom:20px; right:20px; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px 18px; z-index:2000; font-size:13px; transition:all 0.3s; }
   .toast.success { border-color:#22c55e; color:#4ade80; }
   .toast.error { border-color:#ef4444; color:#ef4444; }
@@ -35,69 +234,80 @@
 <body class="text-slate-200">
 
 <!-- LOGIN -->
-<div id="loginScreen" class="fixed inset-0 bg-slate-950 z-[3000] flex items-center justify-center p-4">
-  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full shadow-2xl">
-    <div class="text-center mb-6">
-      <div class="inline-block bg-white rounded-2xl p-4 mb-4 shadow-lg">
+<div id="loginScreen" class="fixed inset-0 z-[3000] flex items-center justify-center p-4" style="background:
+  radial-gradient(800px 400px at 50% -10%, rgba(56,189,248,.12), transparent 60%),
+  radial-gradient(700px 400px at 50% 110%, rgba(34,177,76,.08), transparent 60%),
+  #020617;">
+  <div class="w-full max-w-sm" style="background:linear-gradient(180deg, #0f1a2e 0%, #0b1220 100%);border:1px solid var(--c-border-soft);border-radius:18px;padding:34px 32px;box-shadow:0 30px 60px -20px rgba(0,0,0,.6), 0 0 0 1px rgba(56,189,248,.08);">
+    <div class="text-center mb-7">
+      <div class="inline-block bg-white rounded-2xl p-4 mb-4" style="box-shadow:0 8px 24px -8px rgba(0,0,0,.5);">
         <img src="https://drive.google.com/thumbnail?id=19FylJ0QVp0DwCqmMVgrjKcBP-VkRE0Jc&sz=w400" alt="LCD Group" class="h-20 mx-auto" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
         <div style="display:none" class="flex items-center justify-center gap-1">
           <span class="text-4xl font-black text-slate-900 tracking-tight">LCD</span>
           <span class="text-2xl text-green-500 font-bold">↗</span>
         </div>
       </div>
-      <h1 class="text-lg font-extrabold text-sky-400 mt-2">Acceso al Sistema</h1>
-      <p class="text-slate-500 text-xs mt-1">División de Evaluaciones Técnicas</p>
+      <h1 class="text-xl font-extrabold mt-3" style="letter-spacing:-.3px;color:#f1f5f9;">Acceso al Sistema</h1>
+      <p class="text-slate-500 text-xs mt-1.5 tracking-wide">DIVISIÓN DE EVALUACIONES TÉCNICAS</p>
     </div>
     <form onsubmit="event.preventDefault();intentarLogin()">
       <label class="block mb-2">Contraseña / PIN</label>
-      <input id="pinInput" type="password" autocomplete="off" autofocus placeholder="••••" class="text-center text-lg tracking-widest mb-2">
-      <div id="loginError" class="hidden text-red-400 text-xs text-center mb-2"></div>
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg py-3 text-sm font-bold mt-3">Ingresar</button>
+      <input id="pinInput" type="password" autocomplete="off" autofocus placeholder="••••" maxlength="32" inputmode="numeric" class="text-center text-lg tracking-widest mb-2">
+      <div id="loginError" class="hidden text-red-400 text-xs text-center mb-2 mt-1"></div>
+      <button type="submit" class="w-full btn-primary mt-4" style="padding:12px;font-size:14px;">Ingresar →</button>
     </form>
-    <div class="text-center text-slate-600 text-xs mt-6">© LCD Group S.A.C. · v2.0</div>
+    <div class="text-center text-slate-600 text-[11px] mt-7 tracking-wider">© LCD Group S.A.C. · v2.0</div>
   </div>
 </div>
 
 <!-- LOADER INICIAL -->
-<div id="loader" class="fixed inset-0 bg-slate-950 z-[2000] flex flex-col items-center justify-center">
-  <div class="spinner mb-4"></div>
-  <div class="text-sky-400 font-semibold">Sincronizando con Google Sheets...</div>
-  <div class="text-slate-500 text-xs mt-2">Cargando inventario y clientes</div>
+<div id="loader" class="fixed inset-0 z-[2000] flex flex-col items-center justify-center" style="background:
+  radial-gradient(600px 400px at 50% 50%, rgba(56,189,248,.08), transparent 70%),
+  #020617;">
+  <div class="spinner mb-5"></div>
+  <div class="font-semibold tracking-tight" style="color:#f1f5f9;font-size:15px;">Sincronizando con Google Sheets</div>
+  <div class="text-slate-500 text-xs mt-2 tracking-wide">Cargando inventario y clientes…</div>
 </div>
 
 <!-- APP WRAPPER (oculto hasta login) -->
 <div id="appWrapper" class="hidden">
 
 <!-- NAV -->
-<div class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+<div class="sticky top-0 z-50" style="background:rgba(11,18,32,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--c-border);">
   <div class="max-w-7xl mx-auto px-5 flex items-center gap-1 flex-wrap">
     <!-- LOGO LCD GROUP en navbar -->
-    <div class="flex items-center gap-2 mr-4 py-3 whitespace-nowrap">
-      <div class="bg-white rounded-lg px-2 py-1">
+    <div class="flex items-center gap-2.5 mr-5 py-3 whitespace-nowrap">
+      <div class="bg-white rounded-lg px-2 py-1 shadow-md">
         <img src="https://drive.google.com/thumbnail?id=19FylJ0QVp0DwCqmMVgrjKcBP-VkRE0Jc&sz=w200" alt="LCD" class="h-7" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div style="display:none" class="items-center gap-0.5">
           <span class="text-base font-black text-slate-900">LCD</span>
           <span class="text-sm text-green-500 font-bold">↗</span>
         </div>
       </div>
-      <span class="font-extrabold text-sky-400 text-sm">AutoCRM</span>
+      <div class="flex flex-col leading-tight">
+        <span class="font-extrabold text-sky-400 text-sm tracking-tight">AutoCRM</span>
+        <span class="text-[9px] text-slate-500 font-medium uppercase tracking-wider">LCD Group</span>
+      </div>
     </div>
-    <button class="tab-btn active px-3 py-4 text-sm font-semibold text-slate-500" data-tab="dashboard" data-role="admin">📊 Dashboard</button>
-    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="inventario" data-role="admin">🚗 Inventario</button>
-    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="crm" data-role="admin">👥 CRM</button>
-    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="matches" data-role="admin">🎯 Matches</button>
-    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="tasadora" data-role="admin">⚖️ Tasación</button>
-    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="cotizaciones" data-role="admin">📑 Cotizaciones</button>
-    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="performance" data-role="admin">📈 Performance</button>
-    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="inspeccion" data-role="all">📋 Inspección</button>
-    <button class="tab-btn px-3 py-4 text-sm font-semibold text-slate-500" data-tab="flyer" data-role="admin">🎨 Flyer</button>
-    <div class="ml-auto flex items-center gap-2">
-      <span id="sessionBadge" class="hidden text-[10px] text-slate-500 font-mono px-2 py-1 rounded border border-slate-800" title="ID de sesión · minutos activos"></span>
-      <span id="userBadge" class="hidden text-xs px-3 py-1 rounded-full"></span>
-      <button onclick="abrirCambiarPin()" id="btnCambiarPin" class="hidden text-slate-400 hover:text-amber-400 text-xs font-semibold px-3 py-1" title="Cambiar mi PIN">🔑 Cambiar PIN</button>
-      <button onclick="sincronizar()" id="btnSync" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1" title="Recargar desde Google Sheets">🔄 Sincronizar</button>
-      <div id="alertBadge" class="hidden bg-red-500/20 border border-red-500 rounded-full px-3 py-1 text-red-500 text-xs font-bold cursor-pointer"></div>
-      <button onclick="cerrarSesion()" class="text-slate-400 hover:text-red-400 text-xs font-semibold px-3 py-1 border border-slate-700 rounded" title="Cerrar sesión">🚪 Salir</button>
+    <button class="tab-btn active text-[13px] font-semibold text-slate-400" data-tab="dashboard" data-role="admin">📊 Dashboard</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inventario" data-role="admin">🚗 Inventario</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="crm" data-role="admin">👥 CRM</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="matches" data-role="admin">🎯 Matches</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="tasadora" data-role="admin">⚖️ Tasación</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="cotizaciones" data-role="admin">📑 Cotizaciones</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="performance" data-role="admin">📈 Performance</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inspeccion" data-role="all">📋 Inspección</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="flyer" data-role="admin">🎨 Flyer</button>
+    <div class="ml-auto flex items-center gap-1.5">
+      <span id="sessionBadge" class="hidden text-[10px] text-slate-500 font-mono px-2 py-1 rounded-md" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);" title="ID de sesión · minutos activos"></span>
+      <span id="userBadge" class="hidden text-xs px-3 py-1 rounded-full font-semibold"></span>
+      <div id="alertBadge" class="hidden rounded-full px-2.5 py-1 text-xs font-bold cursor-pointer" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#f87171;"></div>
+      <!-- Acciones secundarias agrupadas en un cluster -->
+      <div class="flex items-center rounded-lg ml-1" style="background:rgba(255,255,255,.025);border:1px solid var(--c-border);">
+        <button onclick="abrirCambiarPin()" id="btnCambiarPin" class="hidden text-slate-400 hover:text-amber-400 text-xs px-2.5 py-1.5 transition-colors" title="Cambiar mi PIN">🔑</button>
+        <button onclick="sincronizar()" id="btnSync" class="text-slate-400 hover:text-sky-400 text-xs px-2.5 py-1.5 transition-colors" title="Recargar desde Google Sheets">🔄</button>
+        <button onclick="cerrarSesion()" class="text-slate-400 hover:text-red-400 text-xs px-2.5 py-1.5 transition-colors" title="Cerrar sesión">🚪</button>
+      </div>
     </div>
   </div>
 </div>
@@ -470,7 +680,6 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwQl-hTnYJfLVG
     }
   };
 
-  console.log('[gsRun shim] Activo · usando fetch() → ' + APPS_SCRIPT_URL);
 })();
 </script>
 
@@ -498,7 +707,7 @@ function renderFlyer() {
   return `
   <div class="max-w-7xl mx-auto">
     <div class="mb-5">
-      <h1 class="text-xl font-extrabold">🎨 Generador de Flyer · Stories</h1>
+      <h1 class="page-heading">🎨 Generador de Flyer · Stories</h1>
       <p class="text-slate-500 text-sm mt-1">Formato vertical 1080×1920. Click sobre el <span class="text-emerald-400">precio</span> o etiqueta <span class="text-red-400">OFERTA</span> en la vista previa para editarlos directamente.</p>
     </div>
     <div class="grid lg:grid-cols-[380px_1fr] gap-5">
@@ -1379,9 +1588,9 @@ function renderDashboard(alertasSOAT, alertasRev, alertasCli) {
   if(alertasSOAT.length + alertasRev.length + alertasCli.length > 0) {
     html += `<div class="bg-slate-900 border border-slate-700 rounded-xl p-4 mb-4">
       <h3 class="text-red-500 text-sm font-bold mb-3">🔔 Alertas Activas</h3>
-      ${alertasSOAT.map(v=>`<div class="bg-red-500/10 border border-red-500/30 rounded p-2 mb-2 text-sm">⚠️ <b>SOAT por vencer:</b> ${v.marca} ${v.modelo} · ${v.placa} — vence ${fmt(v.soat)}</div>`).join("")}
-      ${alertasRev.map(v=>`<div class="bg-red-500/10 border border-red-500/30 rounded p-2 mb-2 text-sm">⚠️ <b>Rev. Técnica:</b> ${v.marca} ${v.modelo} · ${v.placa} — vence ${fmt(v.revTecnica)}</div>`).join("")}
-      ${alertasCli.map(c=>`<div class="bg-amber-500/10 border border-amber-500/30 rounded p-2 mb-2 text-sm">🟡 <b>Sin contacto ≥7 días:</b> ${c.nombre} (${c.status}) — último: ${fmt(c.fechaUltimoContacto)}</div>`).join("")}
+      ${alertasSOAT.map(v=>`<div class="bg-red-500/10 border border-red-500/30 rounded p-2 mb-2 text-sm">⚠️ <b>SOAT por vencer:</b> ${escHtml(v.marca)} ${escHtml(v.modelo)} · ${escHtml(v.placa)} — vence ${fmt(v.soat)}</div>`).join("")}
+      ${alertasRev.map(v=>`<div class="bg-red-500/10 border border-red-500/30 rounded p-2 mb-2 text-sm">⚠️ <b>Rev. Técnica:</b> ${escHtml(v.marca)} ${escHtml(v.modelo)} · ${escHtml(v.placa)} — vence ${fmt(v.revTecnica)}</div>`).join("")}
+      ${alertasCli.map(c=>`<div class="bg-amber-500/10 border border-amber-500/30 rounded p-2 mb-2 text-sm">🟡 <b>Sin contacto ≥7 días:</b> ${escHtml(c.nombre)} (${escHtml(c.status)}) — último: ${fmt(c.fechaUltimoContacto)}</div>`).join("")}
     </div>`;
   }
 
@@ -1424,8 +1633,8 @@ function renderDashboard(alertasSOAT, alertasRev, alertasCli) {
             const u = calcUtilidad(v);
             const ms = findMatchesForVeh(v);
             return `<tr class="clickable" onclick="openDetalle('${v.id}')">
-              <td class="font-semibold">${v.marca} ${v.modelo} <span class="text-slate-500 font-normal">${v.anio}</span></td>
-              <td class="text-slate-500">${v.placa}</td>
+              <td class="font-semibold">${escHtml(v.marca)} ${escHtml(v.modelo)} <span class="text-slate-500 font-normal">${escHtml(v.anio)}</span></td>
+              <td class="text-slate-500">${escHtml(v.placa)}</td>
               <td class="text-slate-500">${parseInt(v.kilometraje).toLocaleString()}</td>
               <td>${money(calcCostoTotal(v))}</td>
               <td class="text-sky-400">${money(v.precioPublicacion)}</td>
@@ -1451,8 +1660,8 @@ function renderDashboard(alertasSOAT, alertasRev, alertasCli) {
               const u = calcUtilidad(v);
               const d = calcDiasStock(v);
               return `<tr class="clickable" onclick="openDetalle('${v.id}')">
-                <td class="font-semibold">${v.marca} ${v.modelo} <span class="text-slate-500 font-normal">${v.anio}</span></td>
-                <td class="text-slate-500">${v.placa}</td>
+                <td class="font-semibold">${escHtml(v.marca)} ${escHtml(v.modelo)} <span class="text-slate-500 font-normal">${escHtml(v.anio)}</span></td>
+                <td class="text-slate-500">${escHtml(v.placa)}</td>
                 <td>${money(calcCostoTotal(v))}</td>
                 <td class="text-green-400">${money(v.precioVenta)}</td>
                 <td style="color:${u && u.val>=0?"#4ade80":"#ef4444"};font-weight:700">${u?money(u.val):"—"}</td>
@@ -1475,8 +1684,8 @@ function renderInventario() {
   });
 
   let html = `<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-    <h1 class="text-xl font-extrabold">🚗 Inventario (${filtered.length})</h1>
-    <button onclick="openVehModal()" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-semibold">+ Nuevo Vehículo</button>
+    <h1 class="page-heading">🚗 Inventario (${filtered.length})</h1>
+    <button onclick="openVehModal()" class="btn-primary">+ Nuevo Vehículo</button>
   </div>
   <div class="flex gap-2 mb-4 flex-wrap">
     <input id="searchVehInput" placeholder="🔍 Buscar marca, modelo, placa..." value="${searchVeh}" oninput="searchVeh=this.value;render();setTimeout(()=>document.getElementById('searchVehInput')?.focus(),0)" class="flex-1 min-w-[200px]">
@@ -1487,7 +1696,12 @@ function renderInventario() {
   </div>
   <div class="grid gap-3">`;
 
-  if(filtered.length===0) html += `<div class="text-slate-500 text-center py-10">Sin resultados.</div>`;
+  if(filtered.length===0) html += `<div class="card-flat py-12 px-6 text-center">
+    <div class="text-5xl mb-3 opacity-50">🚗</div>
+    <div class="text-slate-300 font-semibold mb-1">Sin vehículos en stock</div>
+    <div class="text-slate-500 text-sm mb-4">${searchVeh ? 'Prueba con otra búsqueda' : 'Agrega tu primer vehículo al inventario'}</div>
+    ${!searchVeh ? `<button onclick="openVehModal()" class="btn-primary">+ Nuevo Vehículo</button>` : ''}
+  </div>`;
 
   filtered.forEach(v=>{
     const ct = calcCostoTotal(v);
@@ -1497,11 +1711,11 @@ function renderInventario() {
     const alerta = parseFloat(v.precioPublicacion)>0 && parseFloat(v.precioPublicacion)<ct;
     const ms = findMatchesForVeh(v);
 
-    html += `<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 ${ms.length>0?'ring-1 ring-blue-500/40':''}">
+    html += `<div class="card-elevated p-4 ${ms.length>0?'ring-1 ring-blue-500/40':''}">
       <div class="flex justify-between items-start flex-wrap gap-2">
         <div class="cursor-pointer" onclick="openDetalle('${v.id}')">
-          <span class="font-extrabold text-base">${v.marca} ${v.modelo} ${v.version}</span>
-          <span class="text-slate-500 text-sm ml-2">${v.anio} · ${v.placa} · ${v.transmision} · ${v.color}</span>
+          <span class="font-extrabold text-base">${escHtml(v.marca)} ${escHtml(v.modelo)} ${escHtml(v.version)}</span>
+          <span class="text-slate-500 text-sm ml-2">${escHtml(v.anio)} · ${escHtml(v.placa)} · ${escHtml(v.transmision)} · ${escHtml(v.color)}</span>
           ${v.prenda==="Sí"||v.prenda==="SI"?`<span class="bg-red-500/20 text-red-500 rounded px-2 py-0.5 text-xs font-bold ml-2">PRENDA</span>`:""}
         </div>
         <div class="flex gap-1 items-center flex-wrap">
@@ -1519,7 +1733,7 @@ function renderInventario() {
         ${parseInt(v.kilometraje)>0?`<span class="text-slate-500">🛣 ${parseInt(v.kilometraje).toLocaleString()} km</span>`:""}
       </div>
       ${alerta?`<div class="mt-2 text-red-500 text-xs">⚠️ Precio publicación bajo costo</div>`:""}
-      ${v.comentarios?`<div class="mt-2 text-slate-500 text-xs italic">💬 ${v.comentarios}</div>`:""}
+      ${v.comentarios?`<div class="mt-2 text-slate-500 text-xs italic">💬 ${escHtml(v.comentarios)}</div>`:""}
     </div>`;
   });
 
@@ -1537,8 +1751,8 @@ function renderCRM() {
   filtered.sort((a,b)=>(sortOrder[a.status]??99)-(sortOrder[b.status]??99));
 
   let html = `<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-    <h1 class="text-xl font-extrabold">👥 CRM Clientes (${filtered.length})</h1>
-    <button onclick="openCliModal()" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-semibold">+ Nuevo Cliente</button>
+    <h1 class="page-heading">👥 CRM Clientes (${filtered.length})</h1>
+    <button onclick="openCliModal()" class="btn-primary">+ Nuevo Cliente</button>
   </div>
   <div class="flex gap-2 mb-4 flex-wrap">
     <input id="searchCliInput" placeholder="🔍 Buscar nombre, celular..." value="${searchCli}" oninput="searchCli=this.value;render();setTimeout(()=>document.getElementById('searchCliInput')?.focus(),0)" class="flex-1 min-w-[200px]">
@@ -1548,7 +1762,12 @@ function renderCRM() {
     </select>
   </div>`;
 
-  if(filtered.length===0) html += `<div class="text-slate-500 text-center py-10">Sin clientes.</div>`;
+  if(filtered.length===0) html += `<div class="card-flat py-12 px-6 text-center">
+    <div class="text-5xl mb-3 opacity-50">👥</div>
+    <div class="text-slate-300 font-semibold mb-1">Sin clientes registrados</div>
+    <div class="text-slate-500 text-sm mb-4">${searchCli || filterStatus !== 'Todos' ? 'Prueba con otro filtro' : 'Empieza a construir tu base de clientes'}</div>
+    ${!searchCli && filterStatus === 'Todos' ? `<button onclick="openCliModal()" class="btn-primary">+ Nuevo Cliente</button>` : ''}
+  </div>`;
 
   html += `<div class="grid gap-3">`;
   filtered.forEach(c=>{
@@ -1556,11 +1775,11 @@ function renderCRM() {
     const ms = findMatchesForCli(c);
     const borderClass = ms.length>0 ? "ring-1 ring-green-500/40" : sinContacto ? "border-amber-500/40" : "border-slate-800";
 
-    html += `<div class="bg-slate-900 border ${borderClass} rounded-xl p-4">
+    html += `<div class="card-elevated p-4 ${borderClass !== 'border-slate-800' ? borderClass : ''}">
       <div class="flex justify-between items-start flex-wrap gap-2">
         <div class="cursor-pointer" onclick="openCliDetalle('${c.id}')">
-          <span class="font-extrabold text-base">${c.nombre}</span>
-          <span class="text-slate-500 text-sm ml-2">📱 ${c.celular}</span>
+          <span class="font-extrabold text-base">${escHtml(c.nombre)}</span>
+          <span class="text-slate-500 text-sm ml-2">📱 ${escHtml(c.celular)}</span>
         </div>
         <div class="flex gap-1 items-center flex-wrap">
           ${badge(STATUS_EMOJI[c.status]+" "+c.status, STATUS_COLORS[c.status]||"#64748b")}
@@ -1568,17 +1787,17 @@ function renderCRM() {
         </div>
       </div>
       <div class="flex gap-3 mt-2 flex-wrap text-xs text-slate-500">
-        <span>🚗 ${c.marcaBusca} ${c.modeloBusca}</span>
-        <span>📅 ${c.ranioMin}–${c.ranioMax}</span>
+        <span>🚗 ${escHtml(c.marcaBusca)} ${escHtml(c.modeloBusca)}</span>
+        <span>📅 ${escHtml(c.ranioMin)}–${escHtml(c.ranioMax)}</span>
         <span>💰 ${money(c.presupuesto)}</span>
-        <span>⚙️ ${c.transmisionDesea}</span>
-        <span>🏠 ${c.carroceria}</span>
-        <span>📲 ${c.origen}</span>
+        <span>⚙️ ${escHtml(c.transmisionDesea)}</span>
+        <span>🏠 ${escHtml(c.carroceria)}</span>
+        <span>📲 ${escHtml(c.origen)}</span>
       </div>
       ${sinContacto?`<div class="mt-2 bg-amber-500/10 border border-amber-500/30 rounded p-2 text-amber-500 text-xs">⚠️ Sin contacto hace ${diffDays(c.fechaUltimoContacto,today())} días</div>`:""}
       ${ms.length>0?`<div class="mt-3 bg-green-500/5 border border-green-500/20 rounded p-2">
         <div class="text-green-400 text-xs font-bold mb-1">🎯 Sugerencia de venta:</div>
-        ${ms.slice(0,3).map(m=>`<div class="text-xs text-slate-300 py-0.5"><b>${m.vehiculo.marca} ${m.vehiculo.modelo}</b> ${m.vehiculo.anio} · ${money(m.vehiculo.precioPublicacion)} · <span class="text-sky-400">${m.score}/100</span></div>`).join("")}
+        ${ms.slice(0,3).map(m=>`<div class="text-xs text-slate-300 py-0.5"><b>${escHtml(m.vehiculo.marca)} ${escHtml(m.vehiculo.modelo)}</b> ${escHtml(m.vehiculo.anio)} · ${money(m.vehiculo.precioPublicacion)} · <span class="text-sky-400">${m.score}/100</span></div>`).join("")}
       </div>`:""}
     </div>`;
   });
@@ -1602,8 +1821,8 @@ function renderMatches() {
     html += `<div onclick="selectMatch('${v.id}')" class="bg-slate-900 border ${selected?'border-blue-500':'border-slate-800'} rounded-lg p-3 mb-2 cursor-pointer hover:border-slate-600">
       <div class="flex justify-between items-center flex-wrap gap-1">
         <div>
-          <div class="font-bold text-sm">${v.marca} ${v.modelo} ${v.version} ${v.anio}</div>
-          <div class="text-slate-500 text-xs mt-1">${v.placa} · ${money(v.precioPublicacion)} · ${v.transmision}</div>
+          <div class="font-bold text-sm">${escHtml(v.marca)} ${escHtml(v.modelo)} ${escHtml(v.version)} ${escHtml(v.anio)}</div>
+          <div class="text-slate-500 text-xs mt-1">${escHtml(v.placa)} · ${money(v.precioPublicacion)} · ${escHtml(v.transmision)}</div>
         </div>
         ${ms.length>0?`<span class="badge bg-blue-500/20 text-sky-400 border border-blue-500/50">${ms.length}</span>`:""}
       </div>
@@ -1681,7 +1900,7 @@ function renderTasadora() {
 
   return `<div class="max-w-6xl mx-auto">
     <div class="mb-5">
-      <h1 class="text-xl font-extrabold">⚖️ Tasación · Valor de Mercado</h1>
+      <h1 class="page-heading">⚖️ Tasación · Valor de Mercado</h1>
       <p class="text-slate-500 text-sm mt-1">Herramienta financiera para decidir el precio máximo de oferta en la compra de vehículos seminuevos.</p>
     </div>
 
@@ -1694,7 +1913,7 @@ function renderTasadora() {
         <div class="space-y-4">
           <div>
             <label>1. Placa del Vehículo</label>
-            <input id="tasPlaca" type="text" value="${d.placa}" placeholder="ABC-123"
+            <input id="tasPlaca" type="text" value="${d.placa}" placeholder="ABC-123" maxlength="10"
               oninput="onUpperInput(this, v => tasadoraData.placa = v)" class="uppercase">
           </div>
 
@@ -1702,22 +1921,22 @@ function renderTasadora() {
             <div>
               <label>Marca</label>
               <input type="text" value="${d.marca||''}" placeholder="Toyota, BYD, etc."
-                oninput="onUpperInput(this, v => tasadoraData.marca = v)">
+                oninput="onUpperInput(this, v => { tasadoraData.marca = v; actualizarSmartPricing(tasadoraData); })">
             </div>
             <div>
               <label>Modelo</label>
               <input type="text" value="${d.modelo||''}" placeholder="RAV4"
-                oninput="onUpperInput(this, v => tasadoraData.modelo = v)">
+                oninput="onUpperInput(this, v => { tasadoraData.modelo = v; actualizarSmartPricing(tasadoraData); })">
             </div>
             <div>
               <label>Versión</label>
               <input type="text" value="${d.version||''}" placeholder="XLE"
-                oninput="onUpperInput(this, v => tasadoraData.version = v)">
+                oninput="onUpperInput(this, v => { tasadoraData.version = v; })">
             </div>
             <div>
               <label>Año</label>
               <input type="number" min="1990" max="2030" value="${d.anio||''}" placeholder="2022"
-                oninput="tasadoraData.anio=parseInt(this.value)||''">
+                oninput="tasadoraData.anio=parseInt(this.value)||'';actualizarSmartPricing(tasadoraData)">
             </div>
           </div>
 
@@ -1827,6 +2046,18 @@ function renderTasadora() {
       </div>
 
     </div>
+
+    <!-- ═══ SUGERIDO HISTÓRICO — integrado en Tasación ═══ -->
+    <div class="mt-5 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-800 flex items-start gap-3">
+        <div>
+          <h3 class="text-sm font-bold text-slate-300">📊 Precio Sugerido Histórico</h3>
+          <p class="text-xs text-slate-500 mt-1">Basado en ventas previas con coincidencia exacta de Marca + Modelo + Año. Se actualiza automáticamente al llenar el formulario.</p>
+        </div>
+      </div>
+      <div class="p-4" id="smartPricingResult">${renderSmartPricingResult(d)}</div>
+    </div>
+
   </div>`;
 }
 
@@ -1860,8 +2091,12 @@ function aprobarCompra() {
   const r = calcularOferta(tasadoraData);
   if(!tasadoraData.placa) { toast("⚠️ Ingresa la placa del vehículo", "error"); return; }
   if(r.precioMaxOferta <= 0) { toast("⚠️ El precio máximo de oferta no es válido", "error"); return; }
-  if(!confirm(`¿Aprobar compra de ${tasadoraData.placa} con oferta máx de ${money(r.precioMaxOferta)}?`)) return;
-  enviarTasacion(r, "Aprobada");
+  confirmAccion({
+    title: 'Aprobar compra',
+    message: `¿Aprobar compra de ${tasadoraData.placa} con oferta máxima de ${money(r.precioMaxOferta)}?`,
+    confirmText: '✅ Aprobar',
+    icon: '💰'
+  }).then(ok => { if (ok) enviarTasacion(r, "Aprobada"); });
 }
 
 function guardarCotizacion() {
@@ -1937,7 +2172,7 @@ function renderCotizaciones() {
 
   let html = `<div class="max-w-6xl mx-auto">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-      <h1 class="text-xl font-extrabold">📑 Historial de Cotizaciones</h1>
+      <h1 class="page-heading">📑 Historial de Cotizaciones</h1>
       <button onclick="cargarCotizaciones()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1 border border-slate-700 rounded">🔄 Recargar</button>
     </div>
 
@@ -1983,17 +2218,17 @@ function renderCotizaciones() {
           </tr></thead>
           <tbody>
             ${filtered.map(c=>`<tr>
-              <td class="text-slate-500 text-xs">${c.Fecha||""} ${c.Hora||""}</td>
-              <td><div class="font-semibold">${c.Marca||"—"} ${c.Modelo||""}</div><div class="text-slate-500 text-xs">${c.Anio||""} · ${c.Version||""}</div></td>
-              <td class="font-bold">${c.Placa||"—"}</td>
+              <td class="text-slate-500 text-xs">${escHtml(c.Fecha)} ${escHtml(c.Hora)}</td>
+              <td><div class="font-semibold">${escHtml(c.Marca)||"—"} ${escHtml(c.Modelo)}</div><div class="text-slate-500 text-xs">${escHtml(c.Anio)} · ${escHtml(c.Version)}</div></td>
+              <td class="font-bold">${escHtml(c.Placa)||"—"}</td>
               <td>${money(c.Valor_Comercial)}</td>
               <td class="text-red-400">${money(c.Total_Deducciones)}</td>
               <td class="text-amber-400">${c.Margen_Ganancia_Pct||0}%</td>
               <td class="text-emerald-400">${money(c.Utilidad_Proyectada)}</td>
               <td class="font-bold ${(Number(c.Precio_Maximo_Oferta)||0)>0?'text-emerald-300':'text-red-400'}">${money(c.Precio_Maximo_Oferta)}</td>
               <td>${c.Estado==='Aprobada'?'<span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/50">✅ Aprobada</span>':'<span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/50">⏳ Cotización</span>'}</td>
-              <td class="text-slate-500 text-xs">${c.Usuario||"—"}</td>
-              <td><button onclick="eliminarCotizacion('${c.ID_Operacion || c._rowIndex}','${c.Placa}')" class="text-red-400 hover:text-red-300 text-sm" title="Eliminar">🗑</button></td>
+              <td class="text-slate-500 text-xs">${escHtml(c.Usuario)||"—"}</td>
+              <td><button onclick="eliminarCotizacion('${escAttr(c.ID_Operacion || c._rowIndex)}','${escAttr(c.Placa)}')" class="text-red-400 hover:text-red-300 text-sm" title="Eliminar">🗑</button></td>
             </tr>`).join("")}
           </tbody>
         </table>
@@ -2029,17 +2264,24 @@ function cargarCotizaciones() {
 }
 
 function eliminarCotizacion(idOrRow, placa) {
-  if(!confirm(`¿Eliminar la cotización de ${placa}?`)) return;
-  if(typeof google !== "undefined" && google.script && google.script.run) {
-    google.script.run
-      .withSuccessHandler(r => {
-        if (r && r.exito === false) { toast("⚠️ " + r.error, "error"); return; }
-        toast("✅ Cotización eliminada", "success");
-        cargarCotizaciones();
-      })
-      .withFailureHandler(err=>toast("⚠️ Error: "+err, "error"))
-      .eliminarTasacion(idOrRow);
-  }
+  confirmAccion({
+    title: 'Eliminar cotización',
+    message: `¿Eliminar la cotización de ${placa}? Esta acción no se puede deshacer.`,
+    confirmText: '🗑 Eliminar',
+    danger: true
+  }).then(ok => {
+    if (!ok) return;
+    if(typeof google !== "undefined" && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(r => {
+          if (r && r.exito === false) { toast("⚠️ " + r.error, "error"); return; }
+          toast("✅ Cotización eliminada", "success");
+          cargarCotizaciones();
+        })
+        .withFailureHandler(err=>toast("⚠️ Error: "+err, "error"))
+        .eliminarTasacion(idOrRow);
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2151,8 +2393,8 @@ function renderAlertasBanner() {
           <div class="flex items-start gap-3">
             <span class="text-2xl">${a.icon}</span>
             <div class="flex-1 min-w-0">
-              <div class="font-semibold text-slate-200 text-sm">${a.titulo}</div>
-              <div class="text-slate-400 text-xs mt-0.5">${a.descripcion}</div>
+              <div class="font-semibold text-slate-200 text-sm">${escHtml(a.titulo)}</div>
+              <div class="text-slate-400 text-xs mt-0.5">${escHtml(a.descripcion)}</div>
             </div>
             <span class="text-slate-600 text-xs">→</span>
           </div>
@@ -2167,30 +2409,30 @@ function renderAlertasBanner() {
 // ═══════════════════════════════════════════════════════════════
 
 // ─── SMART PRICING: sugiere precio basado en vehículos similares vendidos ───
-let pricingCalc = { marca:'', modelo:'', anio:'', km:'' };
-
 function calcularPrecioSugerido(c) {
-  const TOL_ANIO = 2;
   const TOL_KM = 25000;
-  const marcaIn = String(c.marca||'').toUpperCase().trim();
-  const modeloIn = String(c.modelo||'').toUpperCase().trim();
-  const anioIn = parseInt(c.anio) || 0;
-  const kmIn = parseInt(c.km) || 0;
+  const marcaIn  = String(c.marca  ||'').toUpperCase().trim();
+  const modeloIn = String(c.modelo ||'').toUpperCase().trim();
+  const anioIn   = parseInt(c.anio) || 0;
+  const kmIn     = parseInt(c.km)   || 0;
 
-  if (!marcaIn) return { confianza:'sin_datos', mensaje:'Indica al menos la marca' };
+  // Los tres campos son obligatorios — sin ellos el promedio no tiene sentido
+  if (!marcaIn)  return { confianza:'sin_datos', mensaje:'Indica la marca', matches:[] };
+  if (!modeloIn) return { confianza:'sin_datos', mensaje:'Indica el modelo', matches:[] };
+  if (!anioIn)   return { confianza:'sin_datos', mensaje:'Indica el año', matches:[] };
 
-  const candidatos = vehs.filter(v => v.estado === 'Vendido' && String(v.marca).toUpperCase().trim() === marcaIn);
-  if (candidatos.length === 0) return { confianza:'sin_datos', mensaje:`Sin ventas históricas de ${marcaIn}`, matches:[] };
+  // Match estricto: Marca + Modelo + Año exactos (sin fallback)
+  let matches = vehs.filter(v =>
+    v.estado === 'Vendido' &&
+    String(v.marca ).toUpperCase().trim() === marcaIn  &&
+    String(v.modelo).toUpperCase().trim() === modeloIn &&
+    parseInt(v.anio) === anioIn
+  );
 
-  // Aplicar filtros progresivos
-  let matches = candidatos;
-  if (modeloIn) matches = matches.filter(v => String(v.modelo).toUpperCase().trim() === modeloIn);
-  if (matches.length === 0) matches = candidatos; // fallback a solo marca
+  if (matches.length === 0)
+    return { confianza:'sin_datos', mensaje:`Sin ventas de ${marcaIn} ${modeloIn} ${anioIn} en tu histórico`, matches:[] };
 
-  if (anioIn > 0) {
-    const filtAnio = matches.filter(v => Math.abs(parseInt(v.anio) - anioIn) <= TOL_ANIO);
-    if (filtAnio.length > 0) matches = filtAnio;
-  }
+  // Refinamiento opcional por km dentro del conjunto exacto
   if (kmIn > 0) {
     const filtKm = matches.filter(v => Math.abs(parseInt(v.kilometraje) - kmIn) <= TOL_KM);
     if (filtKm.length > 0) matches = filtKm;
@@ -2419,7 +2661,7 @@ function renderPerformance() {
   let html = `<div class="max-w-7xl mx-auto">
     <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
       <div>
-        <h1 class="text-xl font-extrabold">📈 Performance por Marca</h1>
+        <h1 class="page-heading">📈 Performance por Marca</h1>
         <p class="text-slate-500 text-sm mt-1">Analytics de tu inventario · ${totalVendidos} ventas históricas · ${data.length} marcas</p>
       </div>
     </div>
@@ -2526,9 +2768,6 @@ function renderPerformance() {
     <span class="inline-block ml-3">ROI = Margen Real / Inversión Total</span>
   </div>
 
-  <!-- ═══════ SMART PRICING ═══════ -->
-  ${renderSmartPricing()}
-
   <!-- ═══════ HEATMAP DEMANDA vs STOCK ═══════ -->
   ${renderHeatmapDemanda()}
 
@@ -2537,57 +2776,13 @@ function renderPerformance() {
   return html;
 }
 
-function renderSmartPricing() {
-  const c = pricingCalc;
-  return `<div class="mt-6 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-800">
-      <h3 class="text-sm font-bold text-slate-300">💰 Smart Pricing — Sugerencia basada en histórico</h3>
-      <p class="text-xs text-slate-500 mt-1">Ingresa los datos de un vehículo nuevo y te diré a qué precio publicarlo según tus ventas pasadas</p>
-    </div>
-    <div class="p-4 grid lg:grid-cols-[300px_1fr] gap-4">
-      <!-- INPUTS — uso onUpperInput que preserva el cursor -->
-      <div class="space-y-3">
-        <div>
-          <label class="text-[10px] text-slate-500 uppercase tracking-wider">Marca *</label>
-          <input type="text" id="spMarca" value="${c.marca}" placeholder="ej. NISSAN"
-            oninput="onUpperInput(this, v => { pricingCalc.marca = v; actualizarSmartPricing(); })"
-            class="uppercase">
-        </div>
-        <div>
-          <label class="text-[10px] text-slate-500 uppercase tracking-wider">Modelo</label>
-          <input type="text" id="spModelo" value="${c.modelo}" placeholder="ej. KICKS"
-            oninput="onUpperInput(this, v => { pricingCalc.modelo = v; actualizarSmartPricing(); })"
-            class="uppercase">
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-[10px] text-slate-500 uppercase tracking-wider">Año</label>
-            <input type="number" id="spAnio" min="1990" max="2030" value="${c.anio}" placeholder="2022"
-              oninput="pricingCalc.anio=parseInt(this.value)||'';actualizarSmartPricing()">
-          </div>
-          <div>
-            <label class="text-[10px] text-slate-500 uppercase tracking-wider">KM</label>
-            <input type="number" id="spKm" min="0" value="${c.km}" placeholder="50000"
-              oninput="pricingCalc.km=parseInt(this.value)||'';actualizarSmartPricing()">
-          </div>
-        </div>
-        <button onclick="pricingCalc={marca:'',modelo:'',anio:'',km:''};document.getElementById('spMarca').value='';document.getElementById('spModelo').value='';document.getElementById('spAnio').value='';document.getElementById('spKm').value='';actualizarSmartPricing()"
-          class="w-full text-xs text-slate-500 border border-slate-700 rounded py-1.5">🗑 Limpiar</button>
-      </div>
-
-      <!-- RESULTADO — solo este div se actualiza al teclear -->
-      <div id="smartPricingResult">${renderSmartPricingResult()}</div>
-    </div>
-  </div>`;
-}
-
-// Genera SOLO el HTML del resultado (sin inputs ni labels)
-function renderSmartPricingResult() {
-  const c = pricingCalc;
-  if (!c.marca) {
+// Genera el HTML del resultado — lee de `src` (tasadoraData) o estado propio
+function renderSmartPricingResult(src) {
+  const c = src || {};
+  if (!c.marca || !c.modelo || !c.anio) {
     return `<div class="bg-slate-800/40 border border-slate-700 rounded-lg p-6 text-center">
-      <div class="text-3xl mb-2">💡</div>
-      <div class="text-slate-400 text-sm">Ingresa la marca (mínimo) para ver una sugerencia de precio</div>
+      <div class="text-3xl mb-2">📊</div>
+      <div class="text-slate-400 text-sm">Completa <b class="text-slate-300">Marca, Modelo y Año</b> para ver el precio sugerido basado en tu histórico</div>
     </div>`;
   }
 
@@ -2636,10 +2831,10 @@ function renderSmartPricingResult() {
   `;
 }
 
-// Actualización quirúrgica: solo refresca el panel de resultado, NO el formulario
-function actualizarSmartPricing() {
+// Actualización quirúrgica: solo refresca el panel de resultado
+function actualizarSmartPricing(src) {
   const panel = document.getElementById('smartPricingResult');
-  if (panel) panel.innerHTML = renderSmartPricingResult();
+  if (panel) panel.innerHTML = renderSmartPricingResult(src);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2681,6 +2876,69 @@ function verOportunidadHeatmap(carr, trans) {
   currentTab = 'crm';
   render();
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Modal de confirmación profesional (reemplaza window.confirm)
+// Uso: confirmAccion({ title, message, confirmText, danger }).then(ok => ...)
+// ═══════════════════════════════════════════════════════════════
+function confirmAccion(opts) {
+  opts = opts || {};
+  const isDanger    = !!opts.danger;
+  const title       = opts.title       || 'Confirmar';
+  const message     = opts.message     || '¿Estás seguro?';
+  const confirmText = opts.confirmText || (isDanger ? 'Eliminar' : 'Confirmar');
+  const cancelText  = opts.cancelText  || 'Cancelar';
+  const icon        = opts.icon        || (isDanger ? '⚠️' : '❓');
+
+  return new Promise(resolve => {
+    // Quitar cualquier confirm anterior
+    document.getElementById('confirmModalRoot')?.remove();
+
+    const div = document.createElement('div');
+    div.id = 'confirmModalRoot';
+    div.className = 'fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-[6000] flex items-center justify-center p-4 anim-fadeIn';
+    div.innerHTML = `
+      <div class="bg-slate-900 border ${isDanger ? 'border-red-500/50' : 'border-slate-700'} rounded-2xl p-6 max-w-md w-full shadow-2xl ${isDanger ? 'shadow-red-500/20' : 'shadow-slate-900'} anim-scaleIn">
+        <div class="text-center mb-5">
+          <div class="text-5xl mb-3">${icon}</div>
+          <h2 class="text-lg font-extrabold ${isDanger ? 'text-red-400' : 'text-slate-100'} mb-2">${escHtml(title)}</h2>
+          <p class="text-slate-400 text-sm leading-relaxed">${escHtml(message)}</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <button id="confirmCancel" class="border border-slate-700 text-slate-300 rounded-lg py-3 text-sm font-bold hover:bg-slate-800 active:bg-slate-700 transition">
+            ${escHtml(cancelText)}
+          </button>
+          <button id="confirmOk" class="${isDanger ? 'bg-red-600 hover:bg-red-500 active:bg-red-700' : 'bg-blue-600 hover:bg-blue-500 active:bg-blue-700'} text-white rounded-lg py-3 text-sm font-extrabold transition shadow-lg ${isDanger ? 'shadow-red-500/30' : 'shadow-blue-500/30'}">
+            ${escHtml(confirmText)}
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(div);
+
+    const close = (result) => {
+      div.classList.remove('anim-fadeIn');
+      div.classList.add('anim-fadeOut');
+      setTimeout(() => { div.remove(); resolve(result); }, 200);
+    };
+
+    document.getElementById('confirmOk').onclick     = () => close(true);
+    document.getElementById('confirmCancel').onclick = () => close(false);
+    div.onclick = (e) => { if (e.target === div) close(false); };
+    setTimeout(() => document.getElementById('confirmCancel')?.focus(), 50);
+  });
+}
+
+// Esc cierra modales
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const confirmRoot = document.getElementById('confirmModalRoot');
+  if (confirmRoot) { confirmRoot.querySelector('#confirmCancel')?.click(); return; }
+  const modalRoot = document.getElementById('modalRoot');
+  if (modalRoot && modalRoot.innerHTML.trim() !== '') { closeModal(); return; }
+  const idleWarning = document.getElementById('idleWarning');
+  if (idleWarning) onUserActivity();
+});
 
 // Helper para input uppercase que PRESERVA la posición del cursor
 function onUpperInput(el, callback) {
@@ -3020,7 +3278,7 @@ let seccionesAbiertas = { s1: true, s2: false, s3: false, s4: false, s5: false, 
 function renderInspeccion() {
   let html = `<div class="max-w-3xl mx-auto">
     <div class="mb-5">
-      <h1 class="text-xl font-extrabold">📋 Inspección Técnica</h1>
+      <h1 class="page-heading">📋 Inspección Técnica</h1>
       <p class="text-slate-500 text-sm mt-1">Peritaje de campo. Toca cada sección para expandir.</p>
     </div>`;
 
@@ -3120,7 +3378,17 @@ function toggleSeccion(id) {
 }
 
 function limpiarInspeccion() {
-  if(!confirm("¿Limpiar todos los campos de la inspección?")) return;
+  confirmAccion({
+    title: 'Limpiar inspección',
+    message: 'Se borrarán TODOS los campos llenados. ¿Continuar?',
+    confirmText: '🗑 Limpiar todo',
+    danger: true
+  }).then(ok => {
+    if (!ok) return;
+    _doLimpiarInspeccion();
+  });
+}
+function _doLimpiarInspeccion() {
   inspeccionData = {};
   seccionesAbiertas = { s1: true, s2: false, s3: false, s4: false, s5: false, s6: false };
   render();
@@ -3207,8 +3475,18 @@ function guardarInspeccion() {
   const _llenados = INSPECCION_SECCIONES.reduce((s,sec) => s + sec.campos.filter(c=>inspeccionData[c.k]&&String(inspeccionData[c.k]).trim()!=="").length, 0);
   const _porcentaje = Math.round((_llenados/_totalCampos)*100);
   if (_porcentaje < 50) {
-    if (!confirm(`⚠️ Solo has llenado ${_porcentaje}% de los campos (${_llenados}/${_totalCampos}). ¿Generar el PDF igual?`)) return;
+    confirmAccion({
+      title: 'Inspección incompleta',
+      message: `Solo has llenado ${_porcentaje}% de los campos (${_llenados}/${_totalCampos}). ¿Generar el PDF de todos modos? El informe se verá con muchos espacios "—".`,
+      confirmText: 'Generar igual',
+      icon: '📋'
+    }).then(ok => { if (ok) _doGuardarInspeccion(); });
+    return;
   }
+  _doGuardarInspeccion();
+}
+
+function _doGuardarInspeccion() {
 
   const numeroInforme = String(Date.now()).slice(-6);
 
@@ -3323,7 +3601,6 @@ function guardarInspeccion() {
       showInspLoader(false);
       if(btn) { btn.disabled = false; btn.innerHTML = "💾 Guardar Inspección y Generar PDF"; }
       toast("⚠️ Modo preview: google.script.run no disponible", "error");
-      console.log("Datos que se enviarían:", formData);
     }, 1500);
   }
 }
@@ -3399,7 +3676,7 @@ function openDetalle(id) {
   const gastos = [["Compra",v.costoCompra],["Comisión",v.comision],["Inspección",v.costoInspeccion],["Notaría",v.gastosNotaria],["Firma",v.gastoFirma],["Retoques",v.retoques],["Combustible",v.gastoCombustible],["Lavado",v.gastoLavado],["Cochera",v.gastosCochera],["Otros",v.otrosGastos]].filter(([,x])=>parseFloat(x)>0);
 
   let body = `<div class="grid grid-cols-2 gap-2 mb-4 text-sm">
-    ${datos.map(([k,vl])=>`<div class="bg-slate-800 rounded p-2"><div class="text-slate-500 text-xs">${k}</div><div class="font-semibold mt-0.5">${vl||"—"}</div></div>`).join("")}
+    ${datos.map(([k,vl])=>`<div class="bg-slate-800 rounded p-2"><div class="text-slate-500 text-xs">${k}</div><div class="font-semibold mt-0.5">${vl?escHtml(vl):"—"}</div></div>`).join("")}
   </div>
   <div class="bg-slate-800 rounded-lg p-3 mb-3 text-sm">
     <div class="font-bold text-sky-400 mb-2">💰 Desglose Financiero</div>
@@ -3409,18 +3686,18 @@ function openDetalle(id) {
     ${parseFloat(v.precioVenta)>0?`<div class="flex justify-between py-1 text-green-400"><span>Precio Venta</span><span>${money(v.precioVenta)}</span></div>`:""}
     ${u?`<div class="flex justify-between py-2 font-bold border-t border-slate-700 mt-1" style="color:${u.val>=0?"#4ade80":"#ef4444"}"><span>Utilidad ${u.tipo==="proyectada"?"Proy.":"Real"}</span><span>${u.val>=0?"+":""}${money(u.val)}</span></div>`:""}
   </div>
-  ${v.descripcionGastos?`<div class="bg-slate-800 rounded p-3 mb-2 text-sm"><div class="text-slate-500 text-xs mb-1">DESCRIPCIÓN DE GASTOS</div><div>${v.descripcionGastos}</div></div>`:""}
-  ${v.comentarios?`<div class="bg-slate-800 rounded p-3 text-sm"><div class="text-slate-500 text-xs mb-1">COMENTARIOS</div><div>${v.comentarios}</div></div>`:""}
+  ${v.descripcionGastos?`<div class="bg-slate-800 rounded p-3 mb-2 text-sm"><div class="text-slate-500 text-xs mb-1">DESCRIPCIÓN DE GASTOS</div><div>${escHtml(v.descripcionGastos)}</div></div>`:""}
+  ${v.comentarios?`<div class="bg-slate-800 rounded p-3 text-sm"><div class="text-slate-500 text-xs mb-1">COMENTARIOS</div><div>${escHtml(v.comentarios)}</div></div>`:""}
   ${ms.length>0?`<div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mt-3">
     <div class="text-sky-400 text-sm font-bold mb-2">🎯 ${ms.length} cliente${ms.length>1?"s":""} compatible${ms.length>1?"s":""}</div>
-    ${ms.slice(0,5).map(m=>`<div class="text-xs text-slate-300 py-1">${STATUS_EMOJI[m.cliente.status]} <b>${m.cliente.nombre}</b> · ${m.cliente.celular} · <span class="text-sky-400">${m.score}/100</span></div>`).join("")}
+    ${ms.slice(0,5).map(m=>`<div class="text-xs text-slate-300 py-1">${STATUS_EMOJI[m.cliente.status]} <b>${escHtml(m.cliente.nombre)}</b> · ${escHtml(m.cliente.celular)} · <span class="text-sky-400">${m.score}/100</span></div>`).join("")}
   </div>`:""}
   <div class="flex gap-2 justify-end mt-4">
     <button onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cerrar</button>
     <button onclick="closeModal();openVehModal('${v.id}')" class="bg-blue-600 text-white rounded px-4 py-2 text-sm font-semibold">✏️ Editar</button>
   </div>`;
 
-  modal(`${v.marca} ${v.modelo} ${v.version} ${v.anio}`, body);
+  modal(`${escHtml(v.marca)} ${escHtml(v.modelo)} ${escHtml(v.version)} ${escHtml(v.anio)}`, body);
 }
 
 function openCliDetalle(id) {
@@ -3431,21 +3708,21 @@ function openCliDetalle(id) {
   const datos = [["Celular",c.celular],["F. Contacto",fmt(c.fechaContacto)],["Último Contacto",fmt(c.fechaUltimoContacto)],["Status",c.status],["Origen",c.origen],["Tipo Pago",c.tipoPago],["Marca",c.marcaBusca],["Modelo",c.modeloBusca||"—"],["Año",`${c.ranioMin}–${c.ranioMax}`],["Presupuesto",money(c.presupuesto)],["Transmisión",c.transmisionDesea],["Carrocería",c.carroceria]];
 
   let body = `<div class="grid grid-cols-2 gap-2 mb-4 text-sm">
-    ${datos.map(([k,vl])=>`<div class="bg-slate-800 rounded p-2"><div class="text-slate-500 text-xs">${k}</div><div class="font-semibold mt-0.5">${vl}</div></div>`).join("")}
+    ${datos.map(([k,vl])=>`<div class="bg-slate-800 rounded p-2"><div class="text-slate-500 text-xs">${k}</div><div class="font-semibold mt-0.5">${escHtml(vl)}</div></div>`).join("")}
   </div>
-  ${c.partePago==="Sí"?`<div class="bg-purple-500/10 border border-purple-500/30 rounded p-3 mb-3 text-sm"><div class="text-purple-400 text-xs mb-1">PARTE DE PAGO</div><div>${c.partePagoDesc||"—"}</div></div>`:""}
+  ${c.partePago==="Sí"?`<div class="bg-purple-500/10 border border-purple-500/30 rounded p-3 mb-3 text-sm"><div class="text-purple-400 text-xs mb-1">PARTE DE PAGO</div><div>${escHtml(c.partePagoDesc)||"—"}</div></div>`:""}
   ${ms.length>0?`<div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
     <div class="text-green-400 text-sm font-bold mb-2">🎯 Sugerencia de venta — ${ms.length} compatible${ms.length>1?"s":""}</div>
     ${ms.map(m=>`<div class="bg-slate-800/60 rounded p-2 mb-1 text-sm">
-      <div class="flex justify-between flex-wrap"><b>${m.vehiculo.marca} ${m.vehiculo.modelo}</b><span class="text-sky-400">${m.score}/100</span></div>
-      <div class="text-slate-500 text-xs">${m.vehiculo.anio} · ${m.vehiculo.placa} · ${money(m.vehiculo.precioPublicacion)}</div>
+      <div class="flex justify-between flex-wrap"><b>${escHtml(m.vehiculo.marca)} ${escHtml(m.vehiculo.modelo)}</b><span class="text-sky-400">${m.score}/100</span></div>
+      <div class="text-slate-500 text-xs">${escHtml(m.vehiculo.anio)} · ${escHtml(m.vehiculo.placa)} · ${money(m.vehiculo.precioPublicacion)}</div>
     </div>`).join("")}
   </div>`:`<div class="bg-slate-800 rounded p-3 text-sm text-slate-500 text-center">Sin coincidencias en stock.</div>`}
   <div class="flex gap-2 justify-end mt-4">
     <button onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cerrar</button>
   </div>`;
 
-  modal(`👤 ${c.nombre}`, body);
+  modal(`👤 ${escHtml(c.nombre)}`, body);
 }
 
 const EMPTY_VEH = {marca:"Toyota",modelo:"",version:"",transmision:"Manual",traccion:"4x2",motor:"",anio:2024,kilometraje:0,color:"Blanco",placa:"",soat:"",revTecnica:"",prenda:"No",fechaCompra:"",comision:0,costoInspeccion:0,gastosNotaria:0,gastoFirma:0,costoCompra:0,retoques:0,gastoCombustible:0,gastoLavado:0,gastosCochera:0,otrosGastos:0,precioPublicacion:0,precioVenta:0,fechaPublicacion:"",fechaVenta:"",descripcionGastos:"",comentarios:"",estado:"Disponible",combustible:"GASOLINA",pasajeros:5,pantalla:""};
@@ -3463,7 +3740,7 @@ function openVehModal(id) {
       ${sel("marca","Marca",MARCAS)}${inp("modelo","Modelo")}${inp("version","Versión")}
       ${sel("transmision","Transmisión",TRANSMISIONES)}${sel("traccion","Tracción",TRACCIONES)}${inp("motor","Motor")}
       ${inp("anio","Año","number","min=1990")}${inp("kilometraje","KM","number","min=0")}${sel("color","Color",COLORES)}
-      ${inp("placa","Placa")}${sel("prenda","Prenda",["No","Sí"])}${sel("estado","Estado",ESTADOS)}
+      ${inp("placa","Placa","text","maxlength=10")}${sel("prenda","Prenda",["No","Sí"])}${sel("estado","Estado",ESTADOS)}
     </div>
     <div class="section-title">Datos para Flyer</div>
     <div class="grid grid-cols-3 gap-3 mb-4">
@@ -3525,7 +3802,6 @@ function saveVeh(id) {
   } else {
     if(btn) { btn.disabled = false; btn.textContent = "Guardar en Google Sheets"; }
     toast("⚠️ Modo preview: google.script.run no disponible", "error");
-    console.log("Datos que se enviarían a guardarVehiculo:", formData);
   }
 }
 
@@ -3537,7 +3813,7 @@ function openCliModal(id) {
   const body = `<form id="cliForm" onsubmit="event.preventDefault();saveCli('${id||""}')">
     <div class="section-title">Datos del Cliente</div>
     <div class="grid grid-cols-3 gap-3 mb-4">
-      ${inp("nombre","Nombre *")}${inp("celular","Celular")}${inp("fechaContacto","F. Contacto","date")}
+      ${inp("nombre","Nombre *","text","maxlength=80")}${inp("celular","Celular","tel","maxlength=15 inputmode=tel")}${inp("fechaContacto","F. Contacto","date")}
       ${inp("fechaUltimoContacto","Último Contacto","date")}${sel("status","Status",STATUS_CRM)}${sel("origen","Origen",ORIGENES)}
       ${sel("tipoPago","Tipo Pago",PAGOS)}
     </div>
@@ -3599,7 +3875,6 @@ function saveCli(id) {
   } else {
     if(btn) { btn.disabled = false; btn.textContent = "Guardar en Google Sheets"; }
     toast("⚠️ Modo preview: google.script.run no disponible", "error");
-    console.log("Datos que se enviarían a guardarCliente:", formData);
   }
 }
 
@@ -3852,8 +4127,12 @@ function aplicarRBAC() {
 }
 
 function cerrarSesion() {
-  if(!confirm("¿Cerrar sesión?")) return;
-  cerrarSesionForzado();
+  confirmAccion({
+    title: 'Cerrar sesión',
+    message: usuarioActual ? `Adiós ${usuarioActual.nombre}. ¿Confirmar cierre de sesión?` : '¿Cerrar la sesión actual?',
+    confirmText: '🚪 Salir',
+    icon: '👋'
+  }).then(ok => { if (ok) cerrarSesionForzado(); });
 }
 
 // Fase 1 · Modal para cambiar PIN
@@ -3866,15 +4145,15 @@ function abrirCambiarPin() {
     <form id="cambiarPinForm" onsubmit="event.preventDefault();confirmarCambiarPin()">
       <div class="mb-3">
         <label>PIN actual</label>
-        <input type="password" id="pinActualInput" autocomplete="current-password" placeholder="••••" autofocus>
+        <input type="password" id="pinActualInput" autocomplete="current-password" placeholder="••••" maxlength="32" autofocus>
       </div>
       <div class="mb-3">
         <label>PIN nuevo (mín. 4 caracteres)</label>
-        <input type="password" id="pinNuevoInput" autocomplete="new-password" placeholder="••••">
+        <input type="password" id="pinNuevoInput" autocomplete="new-password" placeholder="••••" maxlength="32">
       </div>
       <div class="mb-3">
         <label>Confirmar PIN nuevo</label>
-        <input type="password" id="pinConfirmInput" autocomplete="new-password" placeholder="••••">
+        <input type="password" id="pinConfirmInput" autocomplete="new-password" placeholder="••••" maxlength="32">
       </div>
       <div id="cambiarPinError" class="hidden text-red-400 text-xs mb-2"></div>
       <div class="flex gap-2 justify-end">
