@@ -3731,7 +3731,16 @@ const EMPTY_CLI = {nombre:"",fechaContacto:today(),celular:"",marcaBusca:"Indife
 function openVehModal(id) {
   const v = id ? {...vehs.find(x=>String(x.id)===String(id))} : {...EMPTY_VEH};
   const inp = (k,l,t="text",extra="") => `<div><label>${l}</label><input data-k="${k}" type="${t}" value="${v[k]??""}" ${extra}></div>`;
-  const sel = (k,l,opts) => `<div><label>${l}</label><select data-k="${k}">${opts.map(o=>`<option ${v[k]===o?"selected":""}>${o}</option>`).join("")}</select></div>`;
+  const sel = (k,l,opts) => {
+    const cur = String(v[k] ?? '').trim().toLowerCase();
+    const hasMatch = opts.some(o => String(o).trim().toLowerCase() === cur);
+    const options = opts.map(o => {
+      const sel = String(o).trim().toLowerCase() === cur ? 'selected' : '';
+      return `<option value="${escAttr(o)}" ${sel}>${escHtml(o)}</option>`;
+    }).join('');
+    const extra = (!hasMatch && v[k]) ? `<option value="${escAttr(v[k])}" selected>${escHtml(v[k])}</option>` : '';
+    return `<div><label>${l}</label><select data-k="${k}">${extra}${options}</select></div>`;
+  };
   const txt = (k,l) => `<div class="col-span-3"><label>${l}</label><textarea data-k="${k}" rows="2">${v[k]||""}</textarea></div>`;
 
   const body = `<form id="vehForm" onsubmit="event.preventDefault();saveVeh('${id||""}')">
@@ -3762,17 +3771,38 @@ function openVehModal(id) {
     </div>
     <div class="section-title">Precios y Publicación ($)</div>
     <div class="grid grid-cols-2 gap-3 mb-4">
-      ${inp("precioPublicacion","Precio Publicación","number","min=0")}${inp("precioVenta","Precio Venta","number","min=0")}
-      ${inp("fechaPublicacion","F. Publicación","date")}${inp("fechaVenta","F. Venta","date")}
+      ${inp("precioPublicacion","Precio Publicación","number","min=0")}${inp("precioVenta","Precio Venta","number","min=0 oninput=onVentaInput()")}
+      ${inp("fechaPublicacion","F. Publicación","date")}${inp("fechaVenta","F. Venta","date","oninput=onVentaInput()")}
+    </div>
+    <div class="bg-emerald-500/5 border border-emerald-500/20 rounded p-2.5 mb-4 text-xs text-emerald-300/80 flex items-center gap-2">
+      <span>💡</span>
+      <span>Al llenar <b>precio de venta</b> o <b>fecha de venta</b>, el estado pasará automáticamente a <b>"Vendido"</b> y el vehículo se moverá al Historial.</span>
     </div>
     <div class="section-title">Notas</div>
     <div class="grid grid-cols-3 gap-3 mb-4">${txt("comentarios","Comentarios")}</div>
     <div class="flex gap-2 justify-end">
       <button type="button" onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cancelar</button>
-      <button type="submit" id="btnSaveVeh" class="bg-blue-600 text-white rounded px-4 py-2 text-sm font-semibold">Guardar en Google Sheets</button>
+      <button type="submit" id="btnSaveVeh" class="btn-primary">Guardar en Google Sheets</button>
     </div>
   </form>`;
   modal(id?"Editar Vehículo":"Nuevo Vehículo", body);
+}
+
+// Auto: si llenas precio_venta o fecha_venta, marca Estado = "Vendido"
+function onVentaInput() {
+  const form = document.getElementById("vehForm");
+  if (!form) return;
+  const precio = parseFloat(form.querySelector('[data-k="precioVenta"]')?.value) || 0;
+  const fecha  = form.querySelector('[data-k="fechaVenta"]')?.value || '';
+  const estadoSel = form.querySelector('[data-k="estado"]');
+  if (!estadoSel) return;
+  if (precio > 0 || (fecha && fecha.trim() !== '')) {
+    if (estadoSel.value !== 'Vendido') {
+      estadoSel.value = 'Vendido';
+      estadoSel.style.boxShadow = '0 0 0 2px rgba(34,197,94,.5)';
+      setTimeout(() => estadoSel.style.boxShadow = '', 1500);
+    }
+  }
 }
 
 function saveVeh(id) {
@@ -3808,7 +3838,16 @@ function saveVeh(id) {
 function openCliModal(id) {
   const c = id ? {...clis.find(x=>String(x.id)===String(id))} : {...EMPTY_CLI};
   const inp = (k,l,t="text",extra="") => `<div><label>${l}</label><input data-k="${k}" type="${t}" value="${c[k]??""}" ${extra}></div>`;
-  const sel = (k,l,opts) => `<div><label>${l}</label><select data-k="${k}">${opts.map(o=>`<option ${c[k]===o?"selected":""}>${o}</option>`).join("")}</select></div>`;
+  const sel = (k,l,opts) => {
+    const cur = String(c[k] ?? '').trim().toLowerCase();
+    const hasMatch = opts.some(o => String(o).trim().toLowerCase() === cur);
+    const options = opts.map(o => {
+      const isSel = String(o).trim().toLowerCase() === cur ? 'selected' : '';
+      return `<option value="${escAttr(o)}" ${isSel}>${escHtml(o)}</option>`;
+    }).join('');
+    const extra = (!hasMatch && c[k]) ? `<option value="${escAttr(c[k])}" selected>${escHtml(c[k])}</option>` : '';
+    return `<div><label>${l}</label><select data-k="${k}">${extra}${options}</select></div>`;
+  };
 
   const body = `<form id="cliForm" onsubmit="event.preventDefault();saveCli('${id||""}')">
     <div class="section-title">Datos del Cliente</div>
