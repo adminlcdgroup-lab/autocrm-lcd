@@ -453,87 +453,93 @@
   }
   #flyerCanvas .fl-gallery-thumb .gt-empty svg { fill: rgba(255,255,255,.15); }
 
-  /* INFO 1240-1670 → ritmo vertical CONSISTENTE con gap (no margin-top individual)
-     FIX html2canvas: usar left/right en lugar de padding 0 60px — html2canvas
-     a veces IGNORA el padding en absolute-positioned elements al renderizar,
-     pegando el contenido al borde izquierdo (bug del descargado vs preview). */
+  /* INFO 1240-1670 → BLOQUE REESCRITO para html2canvas
+     Reemplazo: gap → margin-top en hijos (gap inconsistente en html2canvas)
+     Reemplazo: align-items center → line-height: height (centrado bulletproof) */
   #flyerCanvas .fl-info {
     position: absolute;
     top: 1240px; bottom: 250px;
-    left: 60px; right: 60px;  /* ← era padding: 0 60px */
+    left: 60px; right: 60px;
     padding: 0;
     z-index: 20;
     display: flex; flex-direction: column; justify-content: center;
-    gap: 18px;
   }
-  /* Fila superior: chip de año + marca */
+  /* ESPACIADO entre secciones — usa margin (no gap, que html2canvas ignora) */
+  #flyerCanvas .fl-info > * + * { margin-top: 22px; }
+
+  /* Fila superior: chip de año + marca · usa line-height para centrar */
   #flyerCanvas .fl-info-row1 {
-    display: flex; align-items: center; gap: 18px;
-    /* margin-bottom removido — el gap del padre lo maneja */
+    height: 42px;
+    line-height: 42px;
+    white-space: nowrap;
   }
-  /* Año = único elemento con verde brillante (acento de acción)
-     FIX html2canvas: usar inline-flex + altura fija + line-height:1 */
+  /* Año: badge centrado con line-height = height (no más flex/align-items) */
   #flyerCanvas .fl-anio {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-block;
     background: linear-gradient(135deg, #22B14C 0%, #3FCB6A 100%);
     color: #0a0a0a;
-    height: 38px;
+    height: 42px;
+    line-height: 42px;
     padding: 0 16px;
     border-radius: 8px;
     font-size: 22px; font-weight: 900; letter-spacing: 2px;
     box-shadow: 0 4px 12px rgba(34,177,76,.35);
-    line-height: 1;
+    vertical-align: middle;
     box-sizing: border-box;
   }
-  /* Marca = gris secundario · letter-spacing reducido para no partir palabras */
+  /* Marca: line-height igual a row para que NISSAN se centre con el badge */
   #flyerCanvas .fl-marca {
+    display: inline-block;
     font-size: 26px; font-weight: 700; color: #9ca3af;
     letter-spacing: 4px; text-transform: uppercase;
-    line-height: 1;
+    line-height: 42px;
+    vertical-align: middle;
+    margin-left: 18px;
   }
-  /* Modelo = HERO blanco (lo más importante) · sin margin (gap del padre) */
+  /* Modelo = HERO blanco */
   #flyerCanvas .fl-modelo {
     font-size: 82px; font-weight: 900; color: #fff;
     line-height: .92; letter-spacing: -2px;
     text-transform: uppercase;
     margin: 0;
   }
-  /* Versión = gris claro · letter-spacing REDUCIDO de 4px a 1.5px
-     (con 4px las letras se separan tanto que la V de ADVANCE parecía cortada) */
+  /* Versión: letter-spacing reducido para que no se corten letras */
   #flyerCanvas .fl-version {
     font-size: 24px; font-weight: 600; color: #d1d5db;
     letter-spacing: 1.5px; text-transform: uppercase;
+    line-height: 1.1;
     margin: 0;
-    line-height: 1;
   }
-  /* Precio = HERO blanco · align-items CENTER (no baseline) para html2canvas */
+  /* Precio: usa line-height para centrar USD vs número */
   #flyerCanvas .fl-precio-wrap {
-    display: flex; align-items: center; gap: 14px;
-    margin: 0;  /* ← gap del padre maneja la separación */
+    height: 78px;
+    line-height: 78px;
+    white-space: nowrap;
+    margin: 0;
   }
   #flyerCanvas .fl-precio-currency {
+    display: inline-block;
     font-size: 28px; font-weight: 700; color: #9ca3af; letter-spacing: 2px;
-    line-height: 1;
+    line-height: 78px;
+    vertical-align: middle;
+    margin-right: 14px;
   }
   #flyerCanvas .fl-precio {
+    display: inline-block;
     font-size: 78px; font-weight: 900; color: #fff;
-    line-height: 1; letter-spacing: -2px; outline: none;
+    line-height: 78px; letter-spacing: -2px; outline: none;
     border-bottom: 3px dashed transparent; min-width: 200px;
+    vertical-align: middle;
     margin: 0;
   }
   #flyerCanvas .fl-precio:focus { border-bottom-color: rgba(34,177,76,.5); }
 
-  /* Trust badge: solo borde verde, texto blanco (menos prominente)
-     FIX html2canvas: altura fija + justify-content center + line-height:1 */
+  /* Trust badge: técnica line-height = height para centrado bulletproof */
   #flyerCanvas .fl-trust-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    height: 32px;
-    padding: 0 14px;
+    display: inline-block;
+    height: 36px;
+    line-height: 36px;
+    padding: 0 16px;
     border-radius: 999px;
     background: transparent;
     border: 1.5px solid rgba(34,177,76,.6);
@@ -541,35 +547,39 @@
     font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
     text-transform: uppercase;
     align-self: flex-start;
-    line-height: 1;
     box-sizing: border-box;
     margin: 0;
+    white-space: nowrap;
   }
   #flyerCanvas .fl-trust-badge svg {
     width: 14px; height: 14px; fill: #3FCB6A;
-    flex-shrink: 0;
-    display: block;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+    margin-top: -2px;  /* compensa baseline del SVG vs texto */
   }
 
-  /* Tags más sutiles, con borde tenue
-     FIX html2canvas: inline-flex + altura fija + gap explícito entre emoji y texto */
-  #flyerCanvas .fl-tags { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; }
+  /* Tags: técnica line-height = height para que texto+icono queden centrados */
+  #flyerCanvas .fl-tags {
+    display: block; margin: 0; font-size: 0;
+    /* font-size:0 elimina los espacios entre inline-blocks; cada tag tiene su font-size */
+  }
   #flyerCanvas .fl-tag {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    display: inline-block;
     background: rgba(255,255,255,.05);
     border: 1px solid rgba(255,255,255,.15);
     color: #f3f4f6;
-    height: 48px;
+    height: 52px;
+    line-height: 52px;
     padding: 0 22px;
     border-radius: 999px;
     font-size: 17px; font-weight: 700; letter-spacing: 1px;
     text-transform: uppercase; outline: none;
-    line-height: 1;
     box-sizing: border-box;
     white-space: nowrap;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    vertical-align: top;
   }
   /* FIX html2canvas: padding lateral → left/right; mantengo solo padding vertical
      porque ese no se ignora (solo el horizontal en absolute elements) */
@@ -1220,36 +1230,58 @@ async function flyerCapturarCanvas() {
   const node = document.getElementById('flyerCanvas');
   if (!node) throw new Error('No se encontró el canvas');
 
-  // FIX crítico para html2canvas: esperar a que TODAS las fuentes estén cargadas
-  // antes de capturar. Sin esto, Montserrat aún puede estar cargándose y el
-  // navegador usa una fuente fallback con métricas distintas → texto desalineado.
+  // FIX 1: esperar fuentes cargadas (Montserrat) antes de capturar
   if (document.fonts && document.fonts.ready) {
     try {
       await document.fonts.ready;
-      // Pre-cargar explícitamente los pesos críticos del flyer
       await Promise.all([
         document.fonts.load('900 78px Montserrat'),
         document.fonts.load('900 82px Montserrat'),
         document.fonts.load('700 17px Montserrat'),
         document.fonts.load('700 14px Montserrat')
       ]).catch(() => {});
-    } catch(e) { /* silenciar — proseguir igual */ }
+    } catch(e) {}
   }
-  // Pequeña pausa adicional para garantizar layout estable
-  await new Promise(r => setTimeout(r, 80));
 
   const wrap = document.getElementById('flyerScaleWrap');
   const originalTransform = wrap.style.transform;
-  wrap.style.transform = 'none';
+  const originalOrigin    = wrap.style.transformOrigin;
+
+  // FIX 2: quitar transform + forzar transformOrigin top-left
+  wrap.style.transform       = 'none';
+  wrap.style.transformOrigin = 'top left';
+
+  // FIX 3: forzar reflow antes de capturar para que el layout se asiente
+  // sin esto, html2canvas puede leer dimensiones del scale anterior y
+  // renderizar elementos absolute con offsets incorrectos (bug preview vs download)
+  void node.offsetWidth;
+  void node.offsetHeight;
+  await new Promise(r => requestAnimationFrame(r));
+  await new Promise(r => requestAnimationFrame(r));
+  await new Promise(r => setTimeout(r, 250));
+
   try {
     const canvas = await html2canvas(node, {
-      width: 1080, height: 1920, scale: 2,
-      useCORS: true, allowTaint: false,
-      backgroundColor: '#0a0a0a', logging: false, imageTimeout: 0
+      width:        1080,
+      height:       1920,
+      scale:        2,
+      useCORS:      true,
+      allowTaint:   false,
+      backgroundColor: '#0a0a0a',
+      logging:      false,
+      imageTimeout: 0,
+      // FIX 4: forzar origen y dimensiones del viewport explícitamente
+      x:            0,
+      y:            0,
+      scrollX:      0,
+      scrollY:      -window.scrollY,
+      windowWidth:  1080,
+      windowHeight: 1920
     });
     return canvas;
   } finally {
-    wrap.style.transform = originalTransform;
+    wrap.style.transform       = originalTransform;
+    wrap.style.transformOrigin = originalOrigin;
   }
 }
 
