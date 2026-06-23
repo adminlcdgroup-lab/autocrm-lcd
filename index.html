@@ -381,10 +381,11 @@
     z-index: 28; pointer-events: none;
     background: linear-gradient(180deg, rgba(0,0,0,.85) 0%, rgba(0,0,0,.55) 40%, rgba(0,0,0,0) 100%);
   }
+  /* FIX html2canvas: left/right en vez de padding 0 50px (mismo bug que .fl-info) */
   #flyerCanvas .fl-top {
-    position: absolute; top: 0; left: 0; right: 0; height: 130px;
+    position: absolute; top: 0; left: 50px; right: 50px; height: 130px;
     z-index: 30; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 50px;
+    padding: 0;
   }
   /* Logo con fondo oscuro para garantizar legibilidad */
   #flyerCanvas .fl-top-logo {
@@ -453,12 +454,17 @@
   #flyerCanvas .fl-gallery-thumb .gt-empty svg { fill: rgba(255,255,255,.15); }
 
   /* INFO 1240-1670 → ritmo vertical CONSISTENTE con gap (no margin-top individual)
-     Reservamos 430px de altura y dejamos respirar con gap explícito. */
+     FIX html2canvas: usar left/right en lugar de padding 0 60px — html2canvas
+     a veces IGNORA el padding en absolute-positioned elements al renderizar,
+     pegando el contenido al borde izquierdo (bug del descargado vs preview). */
   #flyerCanvas .fl-info {
-    position: absolute; top: 1240px; left: 0; right: 0; bottom: 250px;
-    padding: 0 60px; z-index: 20;
+    position: absolute;
+    top: 1240px; bottom: 250px;
+    left: 60px; right: 60px;  /* ← era padding: 0 60px */
+    padding: 0;
+    z-index: 20;
     display: flex; flex-direction: column; justify-content: center;
-    gap: 18px;  /* ← ritmo vertical maestro */
+    gap: 18px;
   }
   /* Fila superior: chip de año + marca */
   #flyerCanvas .fl-info-row1 {
@@ -565,11 +571,20 @@
     box-sizing: border-box;
     white-space: nowrap;
   }
+  /* FIX html2canvas: padding lateral → left/right; mantengo solo padding vertical
+     porque ese no se ignora (solo el horizontal en absolute elements) */
   #flyerCanvas .fl-footer {
     position: absolute; bottom: 0; left: 0; right: 0; height: 210px;
     background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
-    z-index: 25; padding: 24px 50px 20px;
+    z-index: 25;
+    padding: 24px 0 20px;
     display: flex; flex-direction: column; gap: 12px;
+    box-sizing: border-box;
+  }
+  /* Wrapper interno para padding horizontal (más confiable en html2canvas) */
+  #flyerCanvas .fl-footer > * {
+    margin-left: 50px;
+    margin-right: 50px;
   }
   #flyerCanvas .fl-footer::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
