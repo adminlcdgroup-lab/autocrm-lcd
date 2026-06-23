@@ -6,7 +6,7 @@
 <title>AutoCRM - Inventario & Clientes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   /* ============================================================
@@ -462,16 +462,22 @@
   #flyerCanvas .fl-info-row1 {
     display: flex; align-items: center; gap: 16px; margin-bottom: 4px;
   }
-  /* Año = único elemento con verde brillante (acento de acción) */
+  /* Año = único elemento con verde brillante (acento de acción)
+     FIX html2canvas: usar inline-flex + altura fija + line-height:1
+     para garantizar centrado vertical perfecto. */
   #flyerCanvas .fl-anio {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: linear-gradient(135deg, #22B14C 0%, #3FCB6A 100%);
     color: #0a0a0a;
-    padding: 6px 16px;
+    height: 38px;
+    padding: 0 16px;
     border-radius: 8px;
     font-size: 22px; font-weight: 900; letter-spacing: 2px;
     box-shadow: 0 4px 12px rgba(34,177,76,.35);
     line-height: 1;
+    box-sizing: border-box;
   }
   /* Marca = gris secundario */
   #flyerCanvas .fl-marca {
@@ -501,28 +507,50 @@
   }
   #flyerCanvas .fl-precio:focus { border-bottom-color: rgba(34,177,76,.5); }
 
-  /* Trust badge: solo borde verde, texto blanco (menos prominente) */
+  /* Trust badge: solo borde verde, texto blanco (menos prominente)
+     FIX html2canvas: altura fija + justify-content center + line-height:1 */
   #flyerCanvas .fl-trust-badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 14px; border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 999px;
     background: transparent;
     border: 1.5px solid rgba(34,177,76,.6);
     color: #e5e7eb;
     font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
     text-transform: uppercase;
     margin-top: 14px; align-self: flex-start;
+    line-height: 1;
+    box-sizing: border-box;
   }
-  #flyerCanvas .fl-trust-badge svg { width: 14px; height: 14px; fill: #3FCB6A; }
+  #flyerCanvas .fl-trust-badge svg {
+    width: 14px; height: 14px; fill: #3FCB6A;
+    flex-shrink: 0;
+    display: block;
+  }
 
-  /* Tags más sutiles, con borde tenue */
-  #flyerCanvas .fl-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  /* Tags más sutiles, con borde tenue
+     FIX html2canvas: inline-flex + altura fija + gap explícito entre emoji y texto */
+  #flyerCanvas .fl-tags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
   #flyerCanvas .fl-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     background: rgba(255,255,255,.05);
     border: 1px solid rgba(255,255,255,.15);
     color: #f3f4f6;
-    padding: 10px 18px; border-radius: 999px;
+    height: 48px;
+    padding: 0 22px;
+    border-radius: 999px;
     font-size: 17px; font-weight: 700; letter-spacing: 1px;
     text-transform: uppercase; outline: none;
+    line-height: 1;
+    box-sizing: border-box;
+    white-space: nowrap;
   }
   #flyerCanvas .fl-footer {
     position: absolute; bottom: 0; left: 0; right: 0; height: 210px;
@@ -535,7 +563,9 @@
     background: linear-gradient(to right, #22B14C, #3FCB6A, #22B14C);
   }
 
-  /* CTA grande de WhatsApp */
+  /* CTA grande de WhatsApp
+     FIX html2canvas: align-items:center estricto + line-height:1 en todos los hijos
+     + display:block en SVG para evitar baseline shift */
   #flyerCanvas .fl-wa-cta {
     background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
     border-radius: 22px;
@@ -543,46 +573,78 @@
     display: flex; align-items: center; gap: 22px;
     box-shadow: 0 10px 35px rgba(37,211,102,.45);
     flex: 1;
+    box-sizing: border-box;
   }
   #flyerCanvas .fl-wa-cta .wa-icon {
     width: 64px; height: 64px; border-radius: 50%;
     background: rgba(255,255,255,.18);
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  #flyerCanvas .fl-wa-cta .wa-icon svg { width: 38px; height: 38px; fill: #fff; }
-  #flyerCanvas .fl-wa-cta .wa-text { display: flex; flex-direction: column; line-height: 1; }
+  #flyerCanvas .fl-wa-cta .wa-icon svg {
+    width: 38px; height: 38px; fill: #fff;
+    display: block;  /* mata el baseline shift de SVG inline */
+  }
+  #flyerCanvas .fl-wa-cta .wa-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1;
+  }
   #flyerCanvas .fl-wa-cta .wa-label {
     font-size: 13px; color: rgba(255,255,255,.85);
     font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
-    margin-bottom: 8px;
+    line-height: 1;
+    margin: 0;
   }
   #flyerCanvas .fl-wa-cta .wa-number {
     font-size: 34px; color: #fff; font-weight: 900; letter-spacing: 1px;
+    line-height: 1;
+    margin: 0;
   }
   #flyerCanvas .fl-wa-cta .wa-brand {
-    margin-left: auto; text-align: right;
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 6px;
+    line-height: 1;
   }
   #flyerCanvas .fl-wa-cta .wa-brand .b1 {
     font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 1px;
+    line-height: 1;
+    margin: 0;
   }
   #flyerCanvas .fl-wa-cta .wa-brand .b2 {
     font-size: 10px; font-weight: 700; color: rgba(255,255,255,.8); letter-spacing: 3px;
+    line-height: 1;
+    margin: 0;
   }
 
-  /* Fila inferior con Instagram + ref code */
+  /* Fila inferior con Instagram + ref code
+     FIX html2canvas: line-height:1 + svg display:block para alineación consistente */
   #flyerCanvas .fl-footer-bottom {
     display: flex; align-items: center; justify-content: center; gap: 16px;
+    line-height: 1;
   }
-  #flyerCanvas .fl-footer-bottom svg { width: 16px; height: 16px; fill: #9ca3af; }
+  #flyerCanvas .fl-footer-bottom svg {
+    width: 16px; height: 16px; fill: #9ca3af;
+    display: block;
+    flex-shrink: 0;
+  }
   #flyerCanvas .fl-footer-bottom .ft-handle {
     font-size: 16px; color: #d1d5db; font-weight: 700; letter-spacing: .5px;
+    line-height: 1;
   }
   #flyerCanvas .fl-footer-bottom .ft-sep {
     color: #4b5563; font-size: 14px;
+    line-height: 1;
   }
   #flyerCanvas .fl-footer-bottom .ft-ref {
     font-size: 12px; color: #6b7280; font-weight: 600;
     letter-spacing: 2px; text-transform: uppercase;
+    line-height: 1;
   }
   #flyerCanvas [contenteditable="true"]:hover {
     background: rgba(34,177,76,.06);
@@ -1129,6 +1191,25 @@ function flyerUpdate() {
 async function flyerCapturarCanvas() {
   const node = document.getElementById('flyerCanvas');
   if (!node) throw new Error('No se encontró el canvas');
+
+  // FIX crítico para html2canvas: esperar a que TODAS las fuentes estén cargadas
+  // antes de capturar. Sin esto, Montserrat aún puede estar cargándose y el
+  // navegador usa una fuente fallback con métricas distintas → texto desalineado.
+  if (document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready;
+      // Pre-cargar explícitamente los pesos críticos del flyer
+      await Promise.all([
+        document.fonts.load('900 78px Montserrat'),
+        document.fonts.load('900 82px Montserrat'),
+        document.fonts.load('700 17px Montserrat'),
+        document.fonts.load('700 14px Montserrat')
+      ]).catch(() => {});
+    } catch(e) { /* silenciar — proseguir igual */ }
+  }
+  // Pequeña pausa adicional para garantizar layout estable
+  await new Promise(r => setTimeout(r, 80));
+
   const wrap = document.getElementById('flyerScaleWrap');
   const originalTransform = wrap.style.transform;
   wrap.style.transform = 'none';
