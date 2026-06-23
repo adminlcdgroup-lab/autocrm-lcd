@@ -452,19 +452,21 @@
   }
   #flyerCanvas .fl-gallery-thumb .gt-empty svg { fill: rgba(255,255,255,.15); }
 
-  /* INFO 1240-1670 → más respiración al fondo (gap de 40px con footer) */
+  /* INFO 1240-1670 → ritmo vertical CONSISTENTE con gap (no margin-top individual)
+     Reservamos 430px de altura y dejamos respirar con gap explícito. */
   #flyerCanvas .fl-info {
     position: absolute; top: 1240px; left: 0; right: 0; bottom: 250px;
     padding: 0 60px; z-index: 20;
     display: flex; flex-direction: column; justify-content: center;
+    gap: 18px;  /* ← ritmo vertical maestro */
   }
   /* Fila superior: chip de año + marca */
   #flyerCanvas .fl-info-row1 {
-    display: flex; align-items: center; gap: 16px; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 18px;
+    /* margin-bottom removido — el gap del padre lo maneja */
   }
   /* Año = único elemento con verde brillante (acento de acción)
-     FIX html2canvas: usar inline-flex + altura fija + line-height:1
-     para garantizar centrado vertical perfecto. */
+     FIX html2canvas: usar inline-flex + altura fija + line-height:1 */
   #flyerCanvas .fl-anio {
     display: inline-flex;
     align-items: center;
@@ -479,31 +481,41 @@
     line-height: 1;
     box-sizing: border-box;
   }
-  /* Marca = gris secundario */
+  /* Marca = gris secundario · letter-spacing reducido para no partir palabras */
   #flyerCanvas .fl-marca {
     font-size: 26px; font-weight: 700; color: #9ca3af;
-    letter-spacing: 7px; text-transform: uppercase;
+    letter-spacing: 4px; text-transform: uppercase;
+    line-height: 1;
   }
-  /* Modelo = HERO blanco (lo más importante) */
+  /* Modelo = HERO blanco (lo más importante) · sin margin (gap del padre) */
   #flyerCanvas .fl-modelo {
     font-size: 82px; font-weight: 900; color: #fff;
     line-height: .92; letter-spacing: -2px;
-    text-transform: uppercase; margin-top: 8px;
+    text-transform: uppercase;
+    margin: 0;
   }
-  /* Versión = gris claro (no compite con modelo) */
+  /* Versión = gris claro · letter-spacing REDUCIDO de 4px a 1.5px
+     (con 4px las letras se separan tanto que la V de ADVANCE parecía cortada) */
   #flyerCanvas .fl-version {
     font-size: 24px; font-weight: 600; color: #d1d5db;
-    letter-spacing: 4px; text-transform: uppercase; margin-top: 6px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    margin: 0;
+    line-height: 1;
   }
-  /* Precio = HERO blanco */
-  #flyerCanvas .fl-precio-wrap { display: flex; align-items: baseline; gap: 14px; margin-top: 20px; }
+  /* Precio = HERO blanco · align-items CENTER (no baseline) para html2canvas */
+  #flyerCanvas .fl-precio-wrap {
+    display: flex; align-items: center; gap: 14px;
+    margin: 0;  /* ← gap del padre maneja la separación */
+  }
   #flyerCanvas .fl-precio-currency {
     font-size: 28px; font-weight: 700; color: #9ca3af; letter-spacing: 2px;
+    line-height: 1;
   }
   #flyerCanvas .fl-precio {
     font-size: 78px; font-weight: 900; color: #fff;
     line-height: 1; letter-spacing: -2px; outline: none;
     border-bottom: 3px dashed transparent; min-width: 200px;
+    margin: 0;
   }
   #flyerCanvas .fl-precio:focus { border-bottom-color: rgba(34,177,76,.5); }
 
@@ -522,9 +534,10 @@
     color: #e5e7eb;
     font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
     text-transform: uppercase;
-    margin-top: 14px; align-self: flex-start;
+    align-self: flex-start;
     line-height: 1;
     box-sizing: border-box;
+    margin: 0;
   }
   #flyerCanvas .fl-trust-badge svg {
     width: 14px; height: 14px; fill: #3FCB6A;
@@ -534,7 +547,7 @@
 
   /* Tags más sutiles, con borde tenue
      FIX html2canvas: inline-flex + altura fija + gap explícito entre emoji y texto */
-  #flyerCanvas .fl-tags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  #flyerCanvas .fl-tags { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; }
   #flyerCanvas .fl-tag {
     display: inline-flex;
     align-items: center;
