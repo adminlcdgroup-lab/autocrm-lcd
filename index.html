@@ -331,7 +331,10 @@
   ============================================================
 -->
 
+<!-- html2canvas (fallback antiguo) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- html-to-image (renderer moderno via SVG foreignObject — mucho más fiel al navegador) -->
+<script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
 <style>
   .flyer-section-title {
@@ -503,26 +506,27 @@
     margin-left: 18px;
   }
 
-  /* Modelo: bloque con altura fija = font-size + buffer */
+  /* Modelo: bloque con altura suficiente para acomodar descenders (Y, J, Q, P, G)
+     SIN overflow:hidden (cortaba la cola de la Y de TERRITORY) */
   #flyerCanvas .fl-modelo {
     display: block;
     font-size: 78px; font-weight: 900; color: #fff;
-    height: 82px;            /* altura fija (no line-height < 1) */
-    line-height: 82px;       /* centra el texto dentro de la altura */
+    height: 96px;            /* font-size + descender + buffer */
+    line-height: 96px;       /* centra el texto vertical */
     letter-spacing: -2px;
     text-transform: uppercase;
-    margin: 0 0 22px 0;      /* MARGIN-BOTTOM explícito (no gap, no margin-top) */
-    overflow: hidden;        /* clip si el texto es muy largo */
+    margin: 0 0 16px 0;
     white-space: nowrap;
+    /* NO overflow: hidden — corta los descenders */
   }
 
-  /* Versión: bloque con altura fija */
+  /* Versión: bloque con altura para acomodar caracteres con descender */
   #flyerCanvas .fl-version {
     display: block;
     font-size: 24px; font-weight: 600; color: #d1d5db;
     letter-spacing: 1.5px; text-transform: uppercase;
-    height: 28px;
-    line-height: 28px;
+    height: 32px;
+    line-height: 32px;
     margin: 0 0 22px 0;
     white-space: nowrap;
   }
@@ -717,6 +721,9 @@
      ============================================================ -->
 <script>
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwQl-hTnYJfLVGGXnkMtGWgdWe_5REXg8EWi252c6fdN1CijStRjQEMyxL2sIqggoE/exec';
+
+// URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
+const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
 
 (function() {
   // Si estamos dentro de Apps Script Web App, google.script.run ya existe → no hacer nada
@@ -1251,7 +1258,7 @@ async function flyerCapturarCanvas() {
   const node = document.getElementById('flyerCanvas');
   if (!node) throw new Error('No se encontró el canvas');
 
-  // FIX 1: esperar fuentes cargadas (Montserrat) antes de capturar
+  // Esperar a que la fuente Montserrat esté cargada
   if (document.fonts && document.fonts.ready) {
     try {
       await document.fonts.ready;
@@ -1268,13 +1275,10 @@ async function flyerCapturarCanvas() {
   const originalTransform = wrap.style.transform;
   const originalOrigin    = wrap.style.transformOrigin;
 
-  // FIX 2: quitar transform + forzar transformOrigin top-left
   wrap.style.transform       = 'none';
   wrap.style.transformOrigin = 'top left';
 
-  // FIX 3: forzar reflow antes de capturar para que el layout se asiente
-  // sin esto, html2canvas puede leer dimensiones del scale anterior y
-  // renderizar elementos absolute con offsets incorrectos (bug preview vs download)
+  // Forzar reflow
   void node.offsetWidth;
   void node.offsetHeight;
   await new Promise(r => requestAnimationFrame(r));
@@ -1282,7 +1286,59 @@ async function flyerCapturarCanvas() {
   await new Promise(r => setTimeout(r, 250));
 
   try {
-    const canvas = await html2canvas(node, {
+    // ════════════════════════════════════════════════════════════
+    // ESTRATEGIA NUEVA: html-to-image (renderer via SVG foreignObject)
+    // Es MUCHO más fiel al navegador que html2canvas porque embeve el
+    // HTML/CSS real dentro de un SVG. No re-implementa CSS manualmente.
+    // Si falla → fallback a html2canvas (peor pero funcional).
+    // ════════════════════════════════════════════════════════════
+    let dataUrl = null;
+    let usedFallback = false;
+
+    if (typeof htmlToImage !== 'undefined' && htmlToImage.toPng) {
+      try {
+        dataUrl = await htmlToImage.toPng(node, {
+          width:           1080,
+          height:          1920,
+          pixelRatio:      2,
+          backgroundColor: '#0a0a0a',
+          cacheBust:       true,
+          fontEmbedCSS:    '',   // las fuentes ya están en el documento
+          skipAutoScale:   true,
+          style: {
+            // garantizar dimensiones exactas durante captura
+            transform:       'none',
+            transformOrigin: 'top left',
+            width:           '1080px',
+            height:          '1920px'
+          }
+        });
+      } catch (errHTI) {
+        console.warn('html-to-image falló, usando fallback html2canvas:', errHTI);
+        usedFallback = true;
+      }
+    } else {
+      usedFallback = true;
+    }
+
+    // Convertir el dataUrl a un canvas (para mantener la API existente)
+    if (dataUrl && !usedFallback) {
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve, reject) => {
+        img.onload  = resolve;
+        img.onerror = reject;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      return canvas;
+    }
+
+    // Fallback: html2canvas
+    return await html2canvas(node, {
       width:        1080,
       height:       1920,
       scale:        2,
@@ -1291,7 +1347,6 @@ async function flyerCapturarCanvas() {
       backgroundColor: '#0a0a0a',
       logging:      false,
       imageTimeout: 0,
-      // FIX 4: forzar origen y dimensiones del viewport explícitamente
       x:            0,
       y:            0,
       scrollX:      0,
@@ -1299,23 +1354,111 @@ async function flyerCapturarCanvas() {
       windowWidth:  1080,
       windowHeight: 1920
     });
-    return canvas;
+
   } finally {
     wrap.style.transform       = originalTransform;
     wrap.style.transformOrigin = originalOrigin;
   }
 }
 
+// ════════════════════════════════════════════════════════════════
+// flyerBuildServerPayload — construye el JSON que enviamos al endpoint
+// de Vercel (Puppeteer renderiza con Chrome real).
+// Para fotos: si hay bytes en base64 (recién subidas), las convertimos a
+// data URI; si solo hay URL de Drive, mandamos la URL.
+// ════════════════════════════════════════════════════════════════
+function flyerBuildServerPayload() {
+  const s = FLYER_STATE;
+
+  function fotoToSrc(i) {
+    if (s.fotosBytes && s.fotosBytes[i]) {
+      // base64 sin prefijo → construir data URI
+      const b = s.fotosBytes[i];
+      return b.startsWith('data:') ? b : ('data:image/jpeg;base64,' + b);
+    }
+    return s.fotos && s.fotos[i] ? s.fotos[i] : '';
+  }
+
+  return {
+    marca:         s.marca || '',
+    modelo:        s.modelo || '',
+    version:       s.version || '',
+    anio:          s.anio || '',
+    km:            s.km || '',
+    transmision:   s.transmision || '',
+    motor:         s.motor || '',
+    traccion:      s.traccion || '',
+    combustible:   s.combustible || '',
+    pasajeros:     s.pasajeros || '',
+    precio:        s.precio || '',
+    placa:         s.placa || '',
+    tagOferta:     s.tagOferta || 'OFERTA',
+    fotoPrincipal: fotoToSrc(0),
+    galeria:       [fotoToSrc(1), fotoToSrc(2), fotoToSrc(3)].filter(x => x),
+    whatsapp:      s.phone || FLYER_DEFAULT_PHONE,
+    email:         'lcdgroupsac@gmail.com',
+    instagram:     s.instagram || FLYER_DEFAULT_INSTAGRAM,
+    brandName:     'LCD GROUP',
+    brandTagline:  'AUTOMOTRIZ',
+    logoUrl:       'https://drive.google.com/thumbnail?id=19FylJ0QVp0DwCqmMVgrjKcBP-VkRE0Jc&sz=w400'
+  };
+}
+
+// ════════════════════════════════════════════════════════════════
+// flyerRenderServerSide — llama al endpoint de Vercel y devuelve un
+// Blob con el PNG renderizado por Chrome headless real.
+// ════════════════════════════════════════════════════════════════
+async function flyerRenderServerSide() {
+  if (!FLYER_RENDER_URL || FLYER_RENDER_URL.indexOf('TU-PROYECTO') !== -1) {
+    throw new Error('FLYER_RENDER_URL no configurada');
+  }
+  const payload = flyerBuildServerPayload();
+  const res = await fetch(FLYER_RENDER_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    let msg = 'HTTP ' + res.status;
+    try {
+      const j = await res.json();
+      if (j && j.error) msg += ': ' + j.error;
+    } catch(e) {}
+    throw new Error(msg);
+  }
+  return await res.blob();
+}
+
 async function flyerDownloadOnly() {
   const btn = document.getElementById('flyerBtnDownload');
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Generando...'; }
   try {
-    const canvas = await flyerCapturarCanvas();
-    const link = document.createElement('a');
-    link.download = `flyer_${FLYER_STATE.placa||'auto'}_${new Date().toISOString().slice(0,10)}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-    toast("✅ Flyer descargado", "success");
+    // ESTRATEGIA 1 (preferida): renderizar en servidor con Chrome real
+    let downloaded = false;
+    try {
+      const blob = await flyerRenderServerSide();
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `flyer_${FLYER_STATE.placa||'auto'}_${new Date().toISOString().slice(0,10)}.png`;
+      link.href = url;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast("✅ Flyer descargado (renderizado en servidor)", "success");
+      downloaded = true;
+    } catch (errServer) {
+      console.warn('Render servidor falló, usando cliente:', errServer);
+      toast("⚠️ Render servidor falló, usando cliente...", "error");
+    }
+
+    // ESTRATEGIA 2 (fallback): renderizar en el cliente con html-to-image
+    if (!downloaded) {
+      const canvas = await flyerCapturarCanvas();
+      const link = document.createElement('a');
+      link.download = `flyer_${FLYER_STATE.placa||'auto'}_${new Date().toISOString().slice(0,10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast("✅ Flyer descargado (cliente)", "success");
+    }
   } catch(err) {
     toast("⚠️ Error: " + (err.message||err), "error");
     console.error(err);
