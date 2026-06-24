@@ -1628,7 +1628,8 @@ function normalizarVehiculo(row) {
     estado: row.Estado || row.estado || "Disponible",
     combustible: row.Combustible || row.combustible || "GASOLINA",
     pasajeros: row.Pasajeros || row.pasajeros || 5,
-    pantalla: row.Pantalla || row.pantalla || ""
+    pantalla: row.Pantalla || row.pantalla || "",
+    descripcionPublica: row.Descripcion_Publica || row.descripcionPublica || ""
   };
 }
 
@@ -1708,7 +1709,8 @@ function vehToBackend(v) {
     Estado: v.estado,
     Combustible: v.combustible || "GASOLINA",
     Pasajeros: v.pasajeros || 5,
-    Pantalla: v.pantalla || ""
+    Pantalla: v.pantalla || "",
+    Descripcion_Publica: v.descripcionPublica || ""
   };
 }
 
@@ -1862,19 +1864,21 @@ function renderEmpty() {
 }
 
 function renderDashboard(alertasSOAT, alertasRev, alertasCli) {
-  const enStock = vehs.filter(v=>["Disponible","Publicado"].includes(v.estado));
-  const vendidos = vehs.filter(v=>v.estado==="Vendido");
+  const enStock    = vehs.filter(v=>["Disponible","Publicado"].includes(v.estado));
+  const reservados = vehs.filter(v=>v.estado==="Reservado");
+  const vendidos   = vehs.filter(v=>v.estado==="Vendido");
   const utilRealTotal = vendidos.reduce((s,v)=>{const u=calcUtilidad(v);return s+(u?.val||0);},0);
   const utilProyTotal = enStock.reduce((s,v)=>{const u=calcUtilidad(v);return s+(u?.val||0);},0);
   const cliActivos = clis.filter(c=>["Caliente","Tibio"].includes(c.status)).length;
   const inversionStock = enStock.reduce((s,v)=>s+calcCostoTotal(v),0);
 
   const stats = [
-    {label:"En Stock", val:enStock.length, icon:"🚗", color:"#3b82f6"},
-    {label:"Vendidos", val:vendidos.length, icon:"✅", color:"#22c55e"},
-    {label:"Inversión Stock", val:money(inversionStock), icon:"📦", color:"#f59e0b"},
-    {label:"Utilidad Real", val:money(utilRealTotal), icon:"💰", color:"#a855f7"},
-    {label:"Utilidad Proy.", val:money(utilProyTotal), icon:"📈", color:"#38bdf8"},
+    {label:"En Stock",     val:enStock.length,    icon:"🚗", color:"#3b82f6"},
+    {label:"Reservados",   val:reservados.length, icon:"🟡", color:"#f59e0b"},
+    {label:"Vendidos",     val:vendidos.length,   icon:"✅", color:"#22c55e"},
+    {label:"Inversión Stock", val:money(inversionStock), icon:"📦", color:"#a855f7"},
+    {label:"Utilidad Real",   val:money(utilRealTotal),  icon:"💰", color:"#22d3ee"},
+    {label:"Utilidad Proy.",  val:money(utilProyTotal),  icon:"📈", color:"#38bdf8"},
     {label:"Clientes Activos", val:cliActivos, icon:"👥", color:"#ec4899"},
   ];
 
@@ -1953,6 +1957,33 @@ function renderDashboard(alertasSOAT, alertasRev, alertasCli) {
       </table>
     </div>
   </div>`;
+
+  // ════ SECCIÓN RESERVADOS ════
+  if(reservados.length > 0) {
+    html += `<div class="bg-amber-500/5 border border-amber-500/30 rounded-xl p-4 mb-4">
+      <h3 class="text-sm text-amber-400 font-bold mb-3">🟡 Reservados (${reservados.length})</h3>
+      <div class="overflow-x-auto">
+        <table>
+          <thead><tr>${["Vehículo","Placa","KM","Pub.","Días en Stock","Util. Proy.","Acción"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+          <tbody>
+            ${reservados.map(v=>{
+              const d = calcDiasStock(v);
+              const u = calcUtilidad(v);
+              return `<tr class="clickable" onclick="openDetalle('${v.id}')">
+                <td class="font-semibold">${escHtml(v.marca)} ${escHtml(v.modelo)} <span class="text-slate-500 font-normal">${escHtml(v.anio)}</span></td>
+                <td class="text-slate-500">${escHtml(v.placa)}</td>
+                <td class="text-slate-500">${parseInt(v.kilometraje).toLocaleString()}</td>
+                <td class="text-sky-400">${money(v.precioPublicacion)}</td>
+                <td class="text-slate-400">${d!==null?d+"d":"—"}</td>
+                <td style="color:${u && u.val>=0?"#4ade80":"#ef4444"}">${u?money(u.val):"—"}</td>
+                <td><button onclick="event.stopPropagation();openVehModal('${v.id}')" class="text-amber-400 hover:text-amber-300 text-xs font-semibold">✏️ Editar</button></td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }
 
   if(vendidos.length > 0) {
     html += `<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -4030,7 +4061,7 @@ function openCliDetalle(id) {
   modal(`👤 ${escHtml(c.nombre)}`, body);
 }
 
-const EMPTY_VEH = {marca:"Toyota",modelo:"",version:"",transmision:"Manual",traccion:"4x2",motor:"",anio:2024,kilometraje:0,color:"Blanco",placa:"",soat:"",revTecnica:"",prenda:"No",fechaCompra:"",comision:0,costoInspeccion:0,gastosNotaria:0,gastoFirma:0,costoCompra:0,retoques:0,gastoCombustible:0,gastoLavado:0,gastosCochera:0,otrosGastos:0,precioPublicacion:0,precioVenta:0,fechaPublicacion:"",fechaVenta:"",descripcionGastos:"",comentarios:"",estado:"Disponible",combustible:"GASOLINA",pasajeros:5,pantalla:""};
+const EMPTY_VEH = {marca:"Toyota",modelo:"",version:"",transmision:"Manual",traccion:"4x2",motor:"",anio:2024,kilometraje:0,color:"Blanco",placa:"",soat:"",revTecnica:"",prenda:"No",fechaCompra:"",comision:0,costoInspeccion:0,gastosNotaria:0,gastoFirma:0,costoCompra:0,retoques:0,gastoCombustible:0,gastoLavado:0,gastosCochera:0,otrosGastos:0,precioPublicacion:0,precioVenta:0,fechaPublicacion:"",fechaVenta:"",descripcionGastos:"",comentarios:"",estado:"Disponible",combustible:"GASOLINA",pasajeros:5,pantalla:"",descripcionPublica:""};
 const EMPTY_CLI = {nombre:"",fechaContacto:today(),celular:"",marcaBusca:"Indiferente",modeloBusca:"",ranioMin:2018,ranioMax:2025,presupuesto:0,transmisionDesea:"Indiferente",carroceria:"Indiferente",partePago:"No",partePagoDesc:"",status:"Tibio",origen:"WhatsApp",tipoPago:"Por definir",fechaUltimoContacto:today()};
 
 function openVehModal(id) {
@@ -4083,8 +4114,20 @@ function openVehModal(id) {
       <span>💡</span>
       <span>Al llenar <b>precio de venta</b> o <b>fecha de venta</b>, el estado pasará automáticamente a <b>"Vendido"</b> y el vehículo se moverá al Historial.</span>
     </div>
-    <div class="section-title">Notas</div>
-    <div class="grid grid-cols-3 gap-3 mb-4">${txt("comentarios","Comentarios")}</div>
+    <div class="section-title">📝 Descripción para Catálogo Público</div>
+    <div class="bg-sky-500/5 border border-sky-500/20 rounded p-2.5 mb-3 text-xs text-sky-300/80 flex items-start gap-2">
+      <span>👁️</span>
+      <span>Lo que escribas acá lo verán los <b>clientes en el catálogo público</b>. Resalta lo bueno del auto: equipamiento, mantenimiento, papeles, accesorios.</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 mb-4">
+      <div class="col-span-3">
+        <label>Descripción pública del vehículo</label>
+        <textarea data-k="descripcionPublica" rows="4" maxlength="500" placeholder="Ejemplo: Auto en excelente estado, único dueño, todos los mantenimientos al día en concesionario oficial. Incluye sensores de retroceso, cámara, llantas nuevas...">${v.descripcionPublica||""}</textarea>
+        <div class="text-xs text-slate-500 mt-1">Máximo 500 caracteres. Aparecerá en la ficha pública del vehículo.</div>
+      </div>
+    </div>
+    <div class="section-title">Notas Internas (no visibles al público)</div>
+    <div class="grid grid-cols-3 gap-3 mb-4">${txt("comentarios","Comentarios internos")}</div>
     <div class="flex gap-2 justify-end">
       <button type="button" onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cancelar</button>
       <button type="submit" id="btnSaveVeh" class="btn-primary">Guardar en Google Sheets</button>
