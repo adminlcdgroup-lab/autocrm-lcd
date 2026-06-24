@@ -453,27 +453,33 @@
   }
   #flyerCanvas .fl-gallery-thumb .gt-empty svg { fill: rgba(255,255,255,.15); }
 
-  /* INFO 1240-1670 → BLOQUE REESCRITO para html2canvas
-     Reemplazo: gap → margin-top en hijos (gap inconsistente en html2canvas)
-     Reemplazo: align-items center → line-height: height (centrado bulletproof) */
+  /* ════════════════════════════════════════════════════════════════
+     INFO BLOCK — REESCRITO PARA HTML2CANVAS-SAFE
+     Reglas estrictas:
+       1. SIN flexbox en el contenedor (html2canvas falla con justify-content)
+       2. SIN gap (no soportado de forma consistente)
+       3. SIN selectores adjacentes `> * + *` (html2canvas a veces los ignora)
+       4. CADA hijo: display block + altura/line-height explícitos + margin-bottom
+       5. Centrado vertical: padding-top calculado MANUALMENTE (no auto)
+     Esto reproduce exacto en el navegador y en el canvas exportado.
+     ════════════════════════════════════════════════════════════════ */
   #flyerCanvas .fl-info {
     position: absolute;
-    top: 1240px; bottom: 250px;
+    top: 1255px;            /* posición fija (no flex justify-content) */
     left: 60px; right: 60px;
-    padding: 0;
+    height: 410px;          /* altura fija para que el contenido respire */
     z-index: 20;
-    display: flex; flex-direction: column; justify-content: center;
+    display: block;         /* ← BLOCK, no flex */
   }
-  /* ESPACIADO entre secciones — usa margin (no gap, que html2canvas ignora) */
-  #flyerCanvas .fl-info > * + * { margin-top: 22px; }
 
-  /* Fila superior: chip de año + marca · usa line-height para centrar */
+  /* Fila superior: badge año + marca · ambos inline-block con line-height = height */
   #flyerCanvas .fl-info-row1 {
+    display: block;
     height: 42px;
     line-height: 42px;
+    margin: 0 0 22px 0;
     white-space: nowrap;
   }
-  /* Año: badge centrado con line-height = height (no más flex/align-items) */
   #flyerCanvas .fl-anio {
     display: inline-block;
     background: linear-gradient(135deg, #22B14C 0%, #3FCB6A 100%);
@@ -484,44 +490,56 @@
     border-radius: 8px;
     font-size: 22px; font-weight: 900; letter-spacing: 2px;
     box-shadow: 0 4px 12px rgba(34,177,76,.35);
-    vertical-align: middle;
+    vertical-align: top;    /* top en lugar de middle — más predecible en canvas */
     box-sizing: border-box;
   }
-  /* Marca: line-height igual a row para que NISSAN se centre con el badge */
   #flyerCanvas .fl-marca {
     display: inline-block;
     font-size: 26px; font-weight: 700; color: #9ca3af;
     letter-spacing: 4px; text-transform: uppercase;
+    height: 42px;
     line-height: 42px;
-    vertical-align: middle;
+    vertical-align: top;
     margin-left: 18px;
   }
-  /* Modelo = HERO blanco */
+
+  /* Modelo: bloque con altura fija = font-size + buffer */
   #flyerCanvas .fl-modelo {
-    font-size: 82px; font-weight: 900; color: #fff;
-    line-height: .92; letter-spacing: -2px;
+    display: block;
+    font-size: 78px; font-weight: 900; color: #fff;
+    height: 82px;            /* altura fija (no line-height < 1) */
+    line-height: 82px;       /* centra el texto dentro de la altura */
+    letter-spacing: -2px;
     text-transform: uppercase;
-    margin: 0;
+    margin: 0 0 22px 0;      /* MARGIN-BOTTOM explícito (no gap, no margin-top) */
+    overflow: hidden;        /* clip si el texto es muy largo */
+    white-space: nowrap;
   }
-  /* Versión: letter-spacing reducido para que no se corten letras */
+
+  /* Versión: bloque con altura fija */
   #flyerCanvas .fl-version {
+    display: block;
     font-size: 24px; font-weight: 600; color: #d1d5db;
     letter-spacing: 1.5px; text-transform: uppercase;
-    line-height: 1.1;
-    margin: 0;
+    height: 28px;
+    line-height: 28px;
+    margin: 0 0 22px 0;
+    white-space: nowrap;
   }
-  /* Precio: usa line-height para centrar USD vs número */
+
+  /* Precio: contenedor block, hijos inline-block con line-height=height */
   #flyerCanvas .fl-precio-wrap {
+    display: block;
     height: 78px;
     line-height: 78px;
+    margin: 0 0 22px 0;
     white-space: nowrap;
-    margin: 0;
   }
   #flyerCanvas .fl-precio-currency {
     display: inline-block;
     font-size: 28px; font-weight: 700; color: #9ca3af; letter-spacing: 2px;
     line-height: 78px;
-    vertical-align: middle;
+    vertical-align: top;
     margin-right: 14px;
   }
   #flyerCanvas .fl-precio {
@@ -529,14 +547,16 @@
     font-size: 78px; font-weight: 900; color: #fff;
     line-height: 78px; letter-spacing: -2px; outline: none;
     border-bottom: 3px dashed transparent; min-width: 200px;
-    vertical-align: middle;
+    vertical-align: top;     /* top más confiable que middle en canvas */
     margin: 0;
   }
   #flyerCanvas .fl-precio:focus { border-bottom-color: rgba(34,177,76,.5); }
 
-  /* Trust badge: técnica line-height = height para centrado bulletproof */
+  /* Trust badge: BLOCK con width:fit-content para que el margin-bottom
+     empuje el siguiente elemento (tags) y no queden pegados */
   #flyerCanvas .fl-trust-badge {
-    display: inline-block;
+    display: block;
+    width: fit-content;
     height: 36px;
     line-height: 36px;
     padding: 0 16px;
@@ -546,9 +566,8 @@
     color: #e5e7eb;
     font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
     text-transform: uppercase;
-    align-self: flex-start;
     box-sizing: border-box;
-    margin: 0;
+    margin: 0 0 22px 0;     /* MARGIN-BOTTOM explícito */
     white-space: nowrap;
   }
   #flyerCanvas .fl-trust-badge svg {
@@ -556,13 +575,16 @@
     display: inline-block;
     vertical-align: middle;
     margin-right: 8px;
-    margin-top: -2px;  /* compensa baseline del SVG vs texto */
+    margin-top: -2px;       /* compensa baseline del SVG */
   }
 
-  /* Tags: técnica line-height = height para que texto+icono queden centrados */
+  /* Tags: contenedor block, hijos inline-block con margin-right + margin-bottom
+     font-size:0 en el padre elimina los espacios entre inline-blocks */
   #flyerCanvas .fl-tags {
-    display: block; margin: 0; font-size: 0;
-    /* font-size:0 elimina los espacios entre inline-blocks; cada tag tiene su font-size */
+    display: block;
+    margin: 0;
+    font-size: 0;
+    line-height: 0;
   }
   #flyerCanvas .fl-tag {
     display: inline-block;
@@ -577,8 +599,7 @@
     text-transform: uppercase; outline: none;
     box-sizing: border-box;
     white-space: nowrap;
-    margin-right: 10px;
-    margin-bottom: 10px;
+    margin: 0 10px 10px 0;
     vertical-align: top;
   }
   /* FIX html2canvas: padding lateral → left/right; mantengo solo padding vertical
