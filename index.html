@@ -290,13 +290,13 @@
       </div>
     </div>
     <button class="tab-btn active text-[13px] font-semibold text-slate-400" data-tab="dashboard" data-role="admin">📊 Dashboard</button>
-    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inventario" data-role="admin">🚗 Inventario</button>
-    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="crm" data-role="admin">👥 CRM</button>
-    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="matches" data-role="admin">🎯 Matches</button>
-    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="tasadora" data-role="admin">⚖️ Tasación</button>
-    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="cotizaciones" data-role="admin">📑 Cotizaciones</button>
-    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="performance" data-role="admin">📈 Performance</button>
-    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inspeccion" data-role="all">📋 Inspección</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inventario" data-role="admin">🚗 Stock</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="crm" data-role="admin">🛒 Compradores</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="matches" data-role="admin">🎯 Oportunidades</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="tasadora" data-role="admin">💵 Compras</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="cotizaciones" data-role="admin">📋 Pipeline</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="performance" data-role="admin">💰 Rentabilidad</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inspeccion" data-role="all">🔧 Inspección</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="flyer" data-role="admin">🎨 Flyer</button>
     <div class="ml-auto flex items-center gap-1.5">
       <span id="sessionBadge" class="hidden text-[10px] text-slate-500 font-mono px-2 py-1 rounded-md" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);" title="ID de sesión · minutos activos"></span>
@@ -736,6 +736,7 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
     'obtenerFotosVehiculo':               { action: 'fotosVehiculo',     isGet: true, argName: 'placa' },
     'obtenerLogoLCD':                     { action: 'logoLCD',           isGet: true },
     'obtenerFotoComoBase64':              { action: 'fotoBase64',        isGet: true, argName: 'url' },
+    'obtenerAuditoria':                   { action: 'auditoria',         isGet: true, argName: 'limit' },
     'guardarVehiculo':                    { action: 'guardarVehiculo' },
     'guardarCliente':                     { action: 'guardarCliente' },
     'guardarTasacion':                    { action: 'guardarTasacion' },
@@ -758,6 +759,10 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
       return;
     }
 
+    // Adjuntar sessionToken automáticamente en todos los POST (writes)
+    // Backend rechaza writes sin token válido (excepto verificarPin/cerrarSesion)
+    const _tk = (typeof sessionToken !== 'undefined') ? sessionToken : null;
+
     let req;
     if (cfg.isGet) {
       const params = new URLSearchParams();
@@ -767,16 +772,29 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
       }
       req = fetch(APPS_SCRIPT_URL + '?' + params.toString(), { method: 'GET', redirect: 'follow' });
     } else {
+      const body = { action: cfg.action, payload: arg };
+      if (_tk) body._token = _tk;  // ← guardia de auth
       req = fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         redirect: 'follow',
-        body: JSON.stringify({ action: cfg.action, payload: arg })
+        body: JSON.stringify(body)
       });
     }
 
     req
       .then(function(r) { return r.json(); })
       .then(function(result) {
+        // Si el backend dice que el token expiró → cerrar sesión automático
+        if (result && result.authRequired) {
+          try {
+            toast && toast('🔒 Tu sesión expiró. Inicia sesión de nuevo.', 'error');
+          } catch(e) {}
+          setTimeout(function(){
+            if (typeof cerrarSesionForzado === 'function') cerrarSesionForzado();
+          }, 1500);
+          if (onFailure) onFailure({ message: 'Sesión expirada' });
+          return;
+        }
         if (onSuccess) onSuccess(result);
       })
       .catch(function(err) {
@@ -1986,7 +2004,12 @@ function render() {
   else if(currentTab === "crm") content.innerHTML = renderCRM();
   else if(currentTab === "matches") content.innerHTML = renderMatches();
   else if(currentTab === "tasadora") content.innerHTML = renderTasadora();
-  else if(currentTab === "cotizaciones") { content.innerHTML = renderCotizaciones(); cargarCotizaciones(); }
+  else if(currentTab === "cotizaciones") {
+    content.innerHTML = renderCotizaciones();
+    // CRITICAL: NO llamar cargarCotizaciones() acá. Genera recursión infinita
+    // porque cargarCotizaciones() hace render() que vuelve a este branch.
+    // La carga inicial se hace UNA vez al cambiar de tab (setTab) o con el botón Recargar.
+  }
   else if(currentTab === "performance") content.innerHTML = renderPerformance();
   else if(currentTab === "inspeccion") { content.innerHTML = renderInspeccion(); initInspeccion(); }
   else if(currentTab === "flyer")      { content.innerHTML = renderFlyer();      initFlyer();      }
@@ -2159,7 +2182,7 @@ function renderInventario() {
   });
 
   let html = `<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-    <h1 class="page-heading">🚗 Inventario (${filtered.length})</h1>
+    <h1 class="page-heading">🚗 Stock de Vehículos (${filtered.length})</h1>
     <button onclick="openVehModal()" class="btn-primary">+ Nuevo Vehículo</button>
   </div>
   <div class="flex gap-2 mb-4 flex-wrap">
@@ -2226,7 +2249,7 @@ function renderCRM() {
   filtered.sort((a,b)=>(sortOrder[a.status]??99)-(sortOrder[b.status]??99));
 
   let html = `<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-    <h1 class="page-heading">👥 CRM Clientes (${filtered.length})</h1>
+    <h1 class="page-heading">🛒 Compradores (${filtered.length})</h1>
     <button onclick="openCliModal()" class="btn-primary">+ Nuevo Cliente</button>
   </div>
   <div class="flex gap-2 mb-4 flex-wrap">
@@ -2282,8 +2305,8 @@ function renderCRM() {
 
 function renderMatches() {
   const stockVehs = vehs.filter(v=>["Disponible","Publicado"].includes(v.estado));
-  let html = `<h1 class="text-xl font-extrabold mb-1">🎯 Motor de Match</h1>
-  <p class="text-slate-500 text-sm mb-4">Selecciona un vehículo para ver clientes compatibles.</p>
+  let html = `<h1 class="page-heading mb-1">🎯 Oportunidades de Venta</h1>
+  <p class="text-slate-500 text-sm mb-4">Selecciona un vehículo del stock para ver qué compradores registrados encajan con sus características.</p>
   <div class="grid md:grid-cols-2 gap-4">
     <div>
       <h3 class="text-sm text-slate-400 font-bold mb-2">Vehículos en Stock</h3>`;
@@ -2339,15 +2362,29 @@ function selectMatch(id) {
   render();
 }
 
-function setTab(t) { currentTab = t; render(); }
+function setTab(t) {
+  currentTab = t;
+  render();
+  // Cargas iniciales que NO deben dispararse desde render() para evitar recursión
+  if (t === "cotizaciones" && !cotizacionesCargando && (!cotizaciones || cotizaciones.length === 0)) {
+    cargarCotizaciones();
+  }
+}
 
 // ────────────── MÓDULO TASADORA · VALOR DE MERCADO ──────────────
 let tasadoraData = {
+  // Vehículo
   placa: "",
   marca: "",
   modelo: "",
   version: "",
   anio: "",
+  km: 0,
+  // Cliente (para seguimiento de leads)
+  cliNombre: "",
+  cliCelular: "",
+  cliNotas: "",
+  // Finanzas
   valorComercial: 0,
   costoReacondicionamiento: 0,
   cargasLegales: 0,
@@ -2375,7 +2412,7 @@ function renderTasadora() {
 
   return `<div class="max-w-6xl mx-auto">
     <div class="mb-5">
-      <h1 class="page-heading">⚖️ Tasación · Valor de Mercado</h1>
+      <h1 class="page-heading">💵 Compra de Vehículos</h1>
       <p class="text-slate-500 text-sm mt-1">Herramienta financiera para decidir el precio máximo de oferta en la compra de vehículos seminuevos.</p>
     </div>
 
@@ -2383,7 +2420,29 @@ function renderTasadora() {
 
       <!-- BLOQUE 1: INPUTS -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div class="section-title">📥 Ingreso de Datos</div>
+        <div class="section-title">👤 Datos del Cliente (Lead)</div>
+        <div class="text-xs text-slate-500 mb-3">Datos del propietario que viene a tasar. Útil para seguimiento si la operación no se concreta hoy.</div>
+        <div class="space-y-3 mb-5">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label>Nombre del cliente</label>
+              <input type="text" value="${escAttr(d.cliNombre||'')}" placeholder="Juan Pérez" maxlength="80"
+                oninput="tasadoraData.cliNombre=this.value">
+            </div>
+            <div>
+              <label>Celular / WhatsApp</label>
+              <input type="tel" value="${escAttr(d.cliCelular||'')}" placeholder="+51 999 123 456" maxlength="20"
+                oninput="tasadoraData.cliCelular=this.value">
+            </div>
+          </div>
+          <div>
+            <label>Notas / Observaciones del cliente</label>
+            <textarea rows="2" maxlength="300" placeholder="Ej: vino a evaluar, está pensando, quiere mostrar a su esposa, llamará el viernes..."
+              oninput="tasadoraData.cliNotas=this.value">${escHtml(d.cliNotas||'')}</textarea>
+          </div>
+        </div>
+
+        <div class="section-title">📥 Datos del Vehículo</div>
 
         <div class="space-y-4">
           <div>
@@ -2412,6 +2471,12 @@ function renderTasadora() {
               <label>Año</label>
               <input type="number" min="1990" max="2030" value="${d.anio||''}" placeholder="2022"
                 oninput="tasadoraData.anio=parseInt(this.value)||'';actualizarSmartPricing(tasadoraData)">
+            </div>
+            <div class="col-span-2">
+              <label>Kilometraje (km)</label>
+              <input type="number" min="0" step="1000" value="${d.km||''}" placeholder="65000"
+                oninput="tasadoraData.km=parseInt(this.value)||0">
+              <div class="text-xs text-slate-500 mt-1">Recorrido actual del vehículo. Afecta directamente el valor de mercado.</div>
             </div>
           </div>
 
@@ -2450,7 +2515,7 @@ function renderTasadora() {
             </div>
           </div>
 
-          <button onclick="tasadoraData={placa:'',marca:'',modelo:'',version:'',anio:'',valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};render()" class="w-full border border-slate-700 text-slate-400 rounded-lg py-2 text-xs mt-2">🗑 Limpiar formulario</button>
+          <button onclick="tasadoraData={placa:'',marca:'',modelo:'',version:'',anio:'',km:0,cliNombre:'',cliCelular:'',cliNotas:'',valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};render()" class="w-full border border-slate-700 text-slate-400 rounded-lg py-2 text-xs mt-2">🗑 Limpiar formulario</button>
         </div>
       </div>
 
@@ -2593,6 +2658,10 @@ function enviarTasacion(r, estado) {
     modelo: tasadoraData.modelo,
     version: tasadoraData.version,
     anio: tasadoraData.anio,
+    km: tasadoraData.km,
+    cliNombre: tasadoraData.cliNombre,
+    cliCelular: tasadoraData.cliCelular,
+    cliNotas: tasadoraData.cliNotas,
     valorComercial: tasadoraData.valorComercial,
     costoReacondicionamiento: tasadoraData.costoReacondicionamiento,
     cargasLegales: tasadoraData.cargasLegales,
@@ -2616,7 +2685,7 @@ function enviarTasacion(r, estado) {
       .withSuccessHandler(result => {
         unlock();
         toast(`✅ ${estado} guardada: ${tasadoraData.placa}`, "success");
-        tasadoraData = {placa:"",marca:"",modelo:"",version:"",anio:"",valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};
+        tasadoraData = {placa:"",marca:"",modelo:"",version:"",anio:"",km:0,cliNombre:'',cliCelular:'',cliNotas:'',valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};
         render();
       })
       .withFailureHandler(err => {
@@ -2647,7 +2716,7 @@ function renderCotizaciones() {
 
   let html = `<div class="max-w-6xl mx-auto">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-      <h1 class="page-heading">📑 Historial de Cotizaciones</h1>
+      <h1 class="page-heading">📋 Pipeline de Compras</h1>
       <button onclick="cargarCotizaciones()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1 border border-slate-700 rounded">🔄 Recargar</button>
     </div>
 
@@ -2689,22 +2758,34 @@ function renderCotizaciones() {
       <div class="overflow-x-auto">
         <table>
           <thead><tr>
-            ${["Fecha","Vehículo","Placa","Valor Com.","Deducciones","Margen","Utilidad","Oferta Máx.","Estado","Usuario",""].map(h=>`<th>${h}</th>`).join("")}
+            ${["Fecha","Cliente","Vehículo","Placa","KM","Oferta Máx.","Margen","Estado","Usuario",""].map(h=>`<th>${h}</th>`).join("")}
           </tr></thead>
           <tbody>
-            ${filtered.map(c=>`<tr>
-              <td class="text-slate-500 text-xs">${escHtml(c.Fecha)} ${escHtml(c.Hora)}</td>
-              <td><div class="font-semibold">${escHtml(c.Marca)||"—"} ${escHtml(c.Modelo)}</div><div class="text-slate-500 text-xs">${escHtml(c.Anio)} · ${escHtml(c.Version)}</div></td>
-              <td class="font-bold">${escHtml(c.Placa)||"—"}</td>
-              <td>${money(c.Valor_Comercial)}</td>
-              <td class="text-red-400">${money(c.Total_Deducciones)}</td>
-              <td class="text-amber-400">${c.Margen_Ganancia_Pct||0}%</td>
-              <td class="text-emerald-400">${money(c.Utilidad_Proyectada)}</td>
-              <td class="font-bold ${(Number(c.Precio_Maximo_Oferta)||0)>0?'text-emerald-300':'text-red-400'}">${money(c.Precio_Maximo_Oferta)}</td>
-              <td>${c.Estado==='Aprobada'?'<span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/50">✅ Aprobada</span>':'<span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/50">⏳ Cotización</span>'}</td>
-              <td class="text-slate-500 text-xs">${escHtml(c.Usuario)||"—"}</td>
-              <td><button onclick="eliminarCotizacion('${escAttr(c.ID_Operacion || c._rowIndex)}','${escAttr(c.Placa)}')" class="text-red-400 hover:text-red-300 text-sm" title="Eliminar">🗑</button></td>
-            </tr>`).join("")}
+            ${filtered.map(c=>{
+              const cliNombre  = c.Cli_Nombre  || c.cliNombre  || '';
+              const cliCelular = c.Cli_Celular || c.cliCelular || '';
+              const cliNotas   = c.Cli_Notas   || c.cliNotas   || '';
+              const km         = c.KM || c.km || 0;
+              const waLink = cliCelular ? `https://wa.me/${String(cliCelular).replace(/[^0-9]/g,'')}` : '';
+              return `<tr class="${cliNotas?'group':''}" ${cliNotas?`title="${escAttr(cliNotas)}"`:''}>
+                <td class="text-slate-500 text-xs">${escHtml(c.Fecha)} ${escHtml(c.Hora)}</td>
+                <td>
+                  ${cliNombre
+                    ? `<div class="font-semibold text-slate-200">${escHtml(cliNombre)}</div>
+                       ${cliCelular ? `<div class="text-xs"><a href="${escAttr(waLink)}" target="_blank" class="text-emerald-400 hover:text-emerald-300">📱 ${escHtml(cliCelular)}</a></div>` : ''}
+                       ${cliNotas ? `<div class="text-[10px] text-slate-500 italic mt-0.5 max-w-[200px] truncate">💬 ${escHtml(cliNotas)}</div>` : ''}`
+                    : `<span class="text-slate-600 text-xs italic">— sin cliente —</span>`}
+                </td>
+                <td><div class="font-semibold">${escHtml(c.Marca)||"—"} ${escHtml(c.Modelo)}</div><div class="text-slate-500 text-xs">${escHtml(c.Anio)} · ${escHtml(c.Version)}</div></td>
+                <td class="font-bold">${escHtml(c.Placa)||"—"}</td>
+                <td class="text-slate-400 text-xs">${km ? parseInt(km).toLocaleString()+' km' : '—'}</td>
+                <td class="font-bold ${(Number(c.Precio_Maximo_Oferta)||0)>0?'text-emerald-300':'text-red-400'}">${money(c.Precio_Maximo_Oferta)}</td>
+                <td class="text-amber-400 text-xs">${c.Margen_Ganancia_Pct||0}%</td>
+                <td>${c.Estado==='Aprobada'?'<span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/50">✅ Aprobada</span>':'<span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/50">⏳ Cotización</span>'}</td>
+                <td class="text-slate-500 text-xs">${escHtml(c.Usuario)||"—"}</td>
+                <td><button onclick="eliminarCotizacion('${escAttr(c.ID_Operacion || c._rowIndex)}','${escAttr(c.Placa)}')" class="text-red-400 hover:text-red-300 text-sm" title="Eliminar">🗑</button></td>
+              </tr>`;
+            }).join("")}
           </tbody>
         </table>
       </div>
@@ -2715,21 +2796,26 @@ function renderCotizaciones() {
   return html;
 }
 
+let _cotInFlight = false;  // Mutex que previene re-entrar si ya hay un fetch en curso
 function cargarCotizaciones() {
+  if (_cotInFlight) return;  // ya hay uno cargando → no dispares otro
   if(typeof google === "undefined" || !google.script || !google.script.run) {
     cotizaciones = [];
     cotizacionesCargando = false;
     return;
   }
+  _cotInFlight = true;
   cotizacionesCargando = true;
   render();
   google.script.run
     .withSuccessHandler(data => {
+      _cotInFlight = false;
       cotizaciones = data || [];
       cotizacionesCargando = false;
       render();
     })
     .withFailureHandler(err => {
+      _cotInFlight = false;
       cotizacionesCargando = false;
       cotizaciones = [];
       toast("⚠️ No se pudieron cargar cotizaciones: " + (err.message||err), "error");
@@ -3136,7 +3222,7 @@ function renderPerformance() {
   let html = `<div class="max-w-7xl mx-auto">
     <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
       <div>
-        <h1 class="page-heading">📈 Performance por Marca</h1>
+        <h1 class="page-heading">💰 Rentabilidad por Marca</h1>
         <p class="text-slate-500 text-sm mt-1">Analytics de tu inventario · ${totalVendidos} ventas históricas · ${data.length} marcas</p>
       </div>
     </div>
@@ -4405,18 +4491,16 @@ function saveCli(id) {
 }
 
 // ────────────── INIT ──────────────
-const USUARIOS = {
-  "1234": { rol: "tecnico", nombre: "Técnico", color: "#f59e0b", tabInicial: "inspeccion" },
-  "admin99": { rol: "admin", nombre: "Administrador", color: "#22c55e", tabInicial: "dashboard" }
-};
-
+// NOTA: La autenticación va 100% por backend (verificarPin + token).
+// El objeto USUARIOS hardcoded fue eliminado por seguridad — antes permitía
+// bypass del login con PINs públicos visibles en este HTML.
 let usuarioActual = null;
 
 // ====================================================
 // SESSION MANAGER — ID + idle timeout + auto-logout
 // ====================================================
-const SESSION_IDLE_MINUTES = 20;          // tiempo total de inactividad
-const SESSION_WARNING_SECONDS = 30;       // aviso antes del cierre auto
+const SESSION_IDLE_MINUTES = 120;         // 2h — técnico hace inspección física desde el celular y vuelve
+const SESSION_WARNING_SECONDS = 60;       // aviso ampliado a 60s para dar tiempo a responder
 let sessionId = null;
 let idleTimer = null;
 let warningTimer = null;
@@ -4589,42 +4673,33 @@ function intentarLogin() {
   const btn = document.querySelector('#loginScreen button[type="submit"]');
   if (btn) { btn.disabled = true; btn.textContent = "Verificando..."; }
 
-  // 1. Intenta verificar con BACKEND (PIN hash + token)
+  // El BACKEND es source of truth para auth. No hay fallback hardcoded ya
+  // que comprometía la seguridad (cualquiera con acceso al HTML conocía los PINs).
+  // Solo permitimos fallback de EMERGENCIA si el backend no responde por red.
   google.script.run
     .withSuccessHandler(r => {
       if (btn) { btn.disabled = false; btn.textContent = "Ingresar"; }
       if (r && r.exito && r.token) {
-        // ✅ Backend auth OK
         err.classList.add("hidden");
         document.getElementById("pinInput").value = "";
         _completarLogin({
           rol: r.rol, nombre: r.nombre, color: r.color, tabInicial: r.tabInicial
         }, r.token);
       } else {
-        _fallbackLoginHardcoded(pin, err, r ? r.error : null);
+        // Backend respondió pero el PIN no es válido → NO probar nada más
+        err.textContent = (r && r.error) || "PIN incorrecto. Intente nuevamente.";
+        err.classList.remove("hidden");
+        document.getElementById("pinInput").value = "";
       }
     })
     .withFailureHandler(e => {
       if (btn) { btn.disabled = false; btn.textContent = "Ingresar"; }
-      // Si backend no responde → fallback al PIN hardcoded
-      _fallbackLoginHardcoded(pin, err, 'Backend no disponible: ' + (e.message || e));
+      // Solo en caso de falla de red real (no de PIN incorrecto) ofrecer fallback de emergencia
+      err.textContent = "⚠️ Backend no disponible. Verifica tu conexión e intenta de nuevo.";
+      err.classList.remove("hidden");
+      console.warn('Login error de red:', e && (e.message || e));
     })
     .verificarPin(pin);
-}
-
-// Fallback: si backend no inicializado o no responde, usa el sistema viejo
-function _fallbackLoginHardcoded(pin, err, motivo) {
-  const usuario = USUARIOS[pin];
-  if (usuario) {
-    err.classList.add("hidden");
-    document.getElementById("pinInput").value = "";
-    _completarLogin(usuario, null);  // sin token (modo legacy)
-    if (motivo) console.warn('Login en modo legacy:', motivo);
-  } else {
-    err.textContent = "PIN incorrecto. Intente nuevamente.";
-    err.classList.remove("hidden");
-    document.getElementById("pinInput").value = "";
-  }
 }
 
 function aplicarRBAC() {
