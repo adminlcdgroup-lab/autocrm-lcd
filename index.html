@@ -773,7 +773,8 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
       if (!cfg.ignoreArg && arg !== undefined && arg !== null) {
         params.set(cfg.argName || 'arg', String(arg));
       }
-      req = fetch(APPS_SCRIPT_URL + '?' + params.toString(), { method: 'GET', redirect: 'follow' });
+      params.set('_t', Date.now());  // cache-buster: evita leer datos viejos tras guardar
+      req = fetch(APPS_SCRIPT_URL + '?' + params.toString(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
     } else {
       const body = { action: cfg.action, payload: arg };
       if (_tk) body._token = _tk;  // ← guardia de auth
@@ -4784,7 +4785,14 @@ function saveVeh(id) {
 
   if(typeof google !== "undefined" && google.script && google.script.run) {
     google.script.run
-      .withSuccessHandler(()=>{ closeModal(); recargarApp(); })
+      .withSuccessHandler((res)=>{
+        if (res && res.exito === false) {
+          if(btn) { btn.disabled = false; btn.textContent = "Guardar en Google Sheets"; }
+          errorGuardar({ message: res.error || 'El servidor no pudo guardar el vehículo.' });
+          return;
+        }
+        closeModal(); recargarApp();
+      })
       .withFailureHandler(err=>{
         if(btn) { btn.disabled = false; btn.textContent = "Guardar en Google Sheets"; }
         errorGuardar(err);
@@ -4866,7 +4874,14 @@ function saveCli(id) {
 
   if(typeof google !== "undefined" && google.script && google.script.run) {
     google.script.run
-      .withSuccessHandler(()=>{ closeModal(); recargarApp(); })
+      .withSuccessHandler((res)=>{
+        if (res && res.exito === false) {
+          if(btn) { btn.disabled = false; btn.textContent = "Guardar en Google Sheets"; }
+          errorGuardar({ message: res.error || 'El servidor no pudo guardar el cliente.' });
+          return;
+        }
+        closeModal(); recargarApp();
+      })
       .withFailureHandler(err=>{
         if(btn) { btn.disabled = false; btn.textContent = "Guardar en Google Sheets"; }
         errorGuardar(err);
