@@ -877,17 +877,17 @@ function renderFlyer() {
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div class="flyer-section-title">🚗 Datos del vehículo</div>
           <div class="grid grid-cols-2 gap-2">
-            <div><label class="flyer-input-label">Marca</label><input type="text" value="${FLYER_STATE.marca}" oninput="onUpperInput(this, v => { FLYER_STATE.marca = v; flyerUpdate(); })"></div>
+            <div><label class="flyer-input-label">Marca</label><input type="text" class="uppercase" value="${FLYER_STATE.marca}" oninput="FLYER_STATE.marca=this.value.toUpperCase();flyerUpdate()"></div>
             <div><label class="flyer-input-label">Año</label><input type="text" value="${FLYER_STATE.anio}" oninput="FLYER_STATE.anio=this.value;flyerUpdate()"></div>
-            <div class="col-span-2"><label class="flyer-input-label">Modelo</label><input type="text" value="${FLYER_STATE.modelo}" oninput="onUpperInput(this, v => { FLYER_STATE.modelo = v; flyerUpdate(); })"></div>
-            <div class="col-span-2"><label class="flyer-input-label">Versión</label><input type="text" value="${FLYER_STATE.version}" oninput="onUpperInput(this, v => { FLYER_STATE.version = v; flyerUpdate(); })"></div>
+            <div class="col-span-2"><label class="flyer-input-label">Modelo</label><input type="text" class="uppercase" value="${FLYER_STATE.modelo}" oninput="FLYER_STATE.modelo=this.value.toUpperCase();flyerUpdate()"></div>
+            <div class="col-span-2"><label class="flyer-input-label">Versión</label><input type="text" class="uppercase" value="${FLYER_STATE.version}" oninput="FLYER_STATE.version=this.value.toUpperCase();flyerUpdate()"></div>
           </div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div class="flyer-section-title">💰 Precio &amp; Etiqueta</div>
           <div class="grid grid-cols-2 gap-2">
             <div><label class="flyer-input-label">Precio (USD)</label><input type="number" value="${FLYER_STATE.precio}" oninput="FLYER_STATE.precio=this.value;flyerUpdate()" placeholder="15500"></div>
-            <div><label class="flyer-input-label">Etiqueta destacada</label><input type="text" value="${FLYER_STATE.tagOferta}" oninput="onUpperInput(this, v => { FLYER_STATE.tagOferta = v; flyerUpdate(); })" placeholder="OFERTA"></div>
+            <div><label class="flyer-input-label">Etiqueta destacada</label><input type="text" class="uppercase" value="${FLYER_STATE.tagOferta}" oninput="FLYER_STATE.tagOferta=this.value.toUpperCase();flyerUpdate()" placeholder="OFERTA"></div>
           </div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -895,8 +895,8 @@ function renderFlyer() {
           <div class="grid grid-cols-2 gap-2">
             <div><label class="flyer-input-label">Kilometraje</label><input type="text" value="${FLYER_STATE.km}" oninput="FLYER_STATE.km=this.value;flyerUpdate()"></div>
             <div><label class="flyer-input-label">Motor</label><input type="text" value="${FLYER_STATE.motor}" oninput="FLYER_STATE.motor=this.value;flyerUpdate()" placeholder="2.0L"></div>
-            <div><label class="flyer-input-label">Transmisión</label><input type="text" value="${FLYER_STATE.transmision}" oninput="onUpperInput(this, v => { FLYER_STATE.transmision = v; flyerUpdate(); })" placeholder="AUTOMÁTICA"></div>
-            <div><label class="flyer-input-label">Tracción</label><input type="text" value="${FLYER_STATE.traccion}" oninput="onUpperInput(this, v => { FLYER_STATE.traccion = v; flyerUpdate(); })" placeholder="4X4"></div>
+            <div><label class="flyer-input-label">Transmisión</label><input type="text" class="uppercase" value="${FLYER_STATE.transmision}" oninput="FLYER_STATE.transmision=this.value.toUpperCase();flyerUpdate()" placeholder="AUTOMÁTICA"></div>
+            <div><label class="flyer-input-label">Tracción</label><input type="text" class="uppercase" value="${FLYER_STATE.traccion}" oninput="FLYER_STATE.traccion=this.value.toUpperCase();flyerUpdate()" placeholder="4X4"></div>
           </div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -2394,6 +2394,9 @@ let tasadoraData = {
   version: "",
   anio: "",
   km: 0,
+  transmision: "",
+  traccion: "",
+  motor: "",
   // Cliente (para seguimiento de leads)
   cliNombre: "",
   cliCelular: "",
@@ -2462,24 +2465,24 @@ function renderTasadora() {
           <div>
             <label>1. Placa del Vehículo</label>
             <input id="tasPlaca" type="text" value="${d.placa}" placeholder="ABC-123" maxlength="10"
-              oninput="onUpperInput(this, v => tasadoraData.placa = v)" class="uppercase">
+              oninput="tasadoraData.placa = this.value.toUpperCase()" class="uppercase">
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label>Marca</label>
-              <input type="text" value="${d.marca||''}" placeholder="Toyota, BYD, etc."
-                oninput="onUpperInput(this, v => { tasadoraData.marca = v; actualizarSmartPricing(tasadoraData); })">
+              <input type="text" value="${d.marca||''}" placeholder="Toyota, BYD, etc." class="uppercase"
+                oninput="tasadoraData.marca = this.value.toUpperCase(); actualizarSmartPricing(tasadoraData)">
             </div>
             <div>
               <label>Modelo</label>
-              <input type="text" value="${d.modelo||''}" placeholder="RAV4"
-                oninput="onUpperInput(this, v => { tasadoraData.modelo = v; actualizarSmartPricing(tasadoraData); })">
+              <input type="text" value="${d.modelo||''}" placeholder="RAV4" class="uppercase"
+                oninput="tasadoraData.modelo = this.value.toUpperCase(); actualizarSmartPricing(tasadoraData)">
             </div>
             <div>
               <label>Versión</label>
-              <input type="text" value="${d.version||''}" placeholder="XLE"
-                oninput="onUpperInput(this, v => { tasadoraData.version = v; })">
+              <input type="text" value="${d.version||''}" placeholder="XLE" class="uppercase"
+                oninput="tasadoraData.version = this.value.toUpperCase()">
             </div>
             <div>
               <label>Año</label>
@@ -2491,6 +2494,24 @@ function renderTasadora() {
               <input type="number" min="0" step="1000" value="${d.km||''}" placeholder="65000"
                 oninput="tasadoraData.km=parseInt(this.value)||0">
               <div class="text-xs text-slate-500 mt-1">Recorrido actual del vehículo. Afecta directamente el valor de mercado.</div>
+            </div>
+            <div>
+              <label>Transmisión</label>
+              <select data-tas="transmision" onchange="tasadoraData.transmision=this.value">
+                ${["","Manual","Automático","CVT"].map(o=>`<option value="${escAttr(o)}" ${d.transmision===o?'selected':''}>${o||'— Seleccionar —'}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label>Tracción</label>
+              <select data-tas="traccion" onchange="tasadoraData.traccion=this.value">
+                ${["","4X2","4X4","AWD"].map(o=>`<option value="${escAttr(o)}" ${d.traccion===o?'selected':''}>${o||'— Seleccionar —'}</option>`).join('')}
+              </select>
+            </div>
+            <div class="col-span-2">
+              <label>Motor</label>
+              <input type="text" class="uppercase" value="${escAttr(d.motor||'')}" placeholder="2.0L, 1.5T, etc."
+                oninput="tasadoraData.motor=this.value.toUpperCase()">
+              <div class="text-xs text-slate-500 mt-1">Estos 3 datos (transmisión, tracción, motor) pasan al Stock al confirmar la compra.</div>
             </div>
           </div>
 
@@ -2529,7 +2550,7 @@ function renderTasadora() {
             </div>
           </div>
 
-          <button onclick="tasadoraData={placa:'',marca:'',modelo:'',version:'',anio:'',km:0,cliNombre:'',cliCelular:'',cliNotas:'',valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};render()" class="w-full border border-slate-700 text-slate-400 rounded-lg py-2 text-xs mt-2">🗑 Limpiar formulario</button>
+          <button onclick="tasadoraData={placa:'',marca:'',modelo:'',version:'',anio:'',km:0,transmision:'',traccion:'',motor:'',cliNombre:'',cliCelular:'',cliNotas:'',valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};render()" class="w-full border border-slate-700 text-slate-400 rounded-lg py-2 text-xs mt-2">🗑 Limpiar formulario</button>
         </div>
       </div>
 
@@ -2674,6 +2695,9 @@ function enviarTasacion(r, estado) {
     version: tasadoraData.version,
     anio: tasadoraData.anio,
     km: tasadoraData.km,
+    transmision: tasadoraData.transmision,
+    traccion: tasadoraData.traccion,
+    motor: tasadoraData.motor,
     cliNombre: tasadoraData.cliNombre,
     cliCelular: tasadoraData.cliCelular,
     cliNotas: tasadoraData.cliNotas,
@@ -2700,7 +2724,7 @@ function enviarTasacion(r, estado) {
       .withSuccessHandler(result => {
         unlock();
         toast(`✅ ${estado} guardada: ${tasadoraData.placa}`, "success");
-        tasadoraData = {placa:"",marca:"",modelo:"",version:"",anio:"",km:0,cliNombre:'',cliCelular:'',cliNotas:'',valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};
+        tasadoraData = {placa:"",marca:"",modelo:"",version:"",anio:"",km:0,transmision:'',traccion:'',motor:'',cliNombre:'',cliCelular:'',cliNotas:'',valorComercial:0,costoReacondicionamiento:0,cargasLegales:0,margenGanancia:15};
         render();
       })
       .withFailureHandler(err => {
