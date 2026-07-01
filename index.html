@@ -294,7 +294,7 @@
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="crm" data-role="admin">🛒 Compradores</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="matches" data-role="admin">🎯 Oportunidades</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="tasadora" data-role="admin">💵 Compras</button>
-    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="cotizaciones" data-role="admin">📋 Pipeline</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="cotizaciones" data-role="admin">📋 Flujo de Ventas</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="performance" data-role="admin">💰 Rentabilidad</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inspeccion" data-role="all">🔧 Inspección</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="flyer" data-role="admin">🎨 Flyer</button>
@@ -2653,7 +2653,7 @@ function renderTasadora() {
 
         <div class="text-center text-xs text-slate-500 mt-2">
           💡 <b>Cotización</b> = cliente aún lo piensa (seguimiento). <b>Inspección</b> = cliente aceptó, va al taller.<br>
-          El seguimiento y la compra final se gestionan desde la pestaña <b>📋 Pipeline</b>.
+          El seguimiento y la compra final se gestionan desde la pestaña <b>📋 Flujo de Ventas</b>.
         </div>
       </div>
 
@@ -2707,7 +2707,7 @@ function guardarEnPipeline(estadoInicial) {
   if (estadoInicial === 'En Inspección') {
     confirmAccion({
       title: 'Pasar a inspección',
-      message: `El cliente aceptó. ${tasadoraData.placa} entra a inspección de taller. Podrás fijar el precio final desde el Pipeline.`,
+      message: `El cliente aceptó. ${tasadoraData.placa} entra a inspección de taller. Podrás fijar el precio final desde el Flujo de Ventas.`,
       confirmText: '🔧 Sí, a inspección',
       icon: '🔧'
     }).then(ok => { if (ok) enviarTasacion(r, estadoInicial); });
@@ -2801,21 +2801,21 @@ function renderCotizaciones() {
   let html = `<div class="max-w-full mx-auto">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
       <div>
-        <h1 class="page-heading">📋 Pipeline de Compras</h1>
+        <h1 class="page-heading">📋 Flujo de Ventas</h1>
         <p class="text-slate-500 text-sm mt-1">Embudo de operaciones de compra. Haz clic en una tarjeta para avanzarla de etapa.</p>
       </div>
       <button onclick="cargarCotizaciones()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);">🔄 Recargar</button>
     </div>`;
 
   if (cotizacionesCargando) {
-    html += `<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-slate-500 text-sm">Cargando pipeline...</div></div></div>`;
+    html += `<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-slate-500 text-sm">Cargando flujo de ventas...</div></div></div>`;
     return html;
   }
 
   if (cotizaciones.length === 0) {
     html += `<div class="card-flat py-12 px-6 text-center">
       <div class="text-5xl mb-3 opacity-50">📭</div>
-      <div class="text-slate-300 font-semibold mb-1">Sin operaciones en el pipeline</div>
+      <div class="text-slate-300 font-semibold mb-1">Sin operaciones en el flujo de ventas</div>
       <div class="text-slate-500 text-sm mb-4">Ve a <b>💵 Compras</b> para registrar la primera tasación.</div>
       <button onclick="setTab('tasadora')" class="btn-primary">💵 Ir a Compras</button>
     </div></div>`;
