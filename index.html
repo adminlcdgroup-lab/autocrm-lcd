@@ -298,6 +298,7 @@
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="performance" data-role="admin">💰 Rentabilidad</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inspeccion" data-role="all">🔧 Inspección</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="flyer" data-role="admin">🎨 Flyer</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="auditoria" data-role="admin">📜 Auditoría</button>
     <div class="ml-auto flex items-center gap-1.5">
       <span id="sessionBadge" class="hidden text-[10px] text-slate-500 font-mono px-2 py-1 rounded-md" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);" title="ID de sesión · minutos activos"></span>
       <span id="userBadge" class="hidden text-xs px-3 py-1 rounded-full font-semibold"></span>
@@ -740,6 +741,8 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
     'guardarVehiculo':                    { action: 'guardarVehiculo' },
     'guardarCliente':                     { action: 'guardarCliente' },
     'guardarTasacion':                    { action: 'guardarTasacion' },
+    'actualizarTasacion':                 { action: 'actualizarTasacion' },
+    'confirmarCompra':                    { action: 'confirmarCompra' },
     'guardarInspeccionYGenerarDocumento': { action: 'guardarInspeccion' },
     'eliminarTasacion':                   { action: 'eliminarTasacion' },
     'guardarFotosVehiculo':               { action: 'guardarFotosVehiculo' },
@@ -1733,10 +1736,17 @@ function procesarDatos(data) {
     showLoader(false);
     render();
     toast(`✅ ${vehs.length} vehículos · ${clis.length} clientes`, "success");
+    // Callback de un solo uso (ej. tras confirmar compra → mostrar compradores compatibles)
+    if (typeof _postSyncCallback === 'function') {
+      const cb = _postSyncCallback;
+      _postSyncCallback = null;
+      try { cb(); } catch(e) { console.warn('postSync cb error', e); }
+    }
   } catch(err) {
     errorCarga(err);
   }
 }
+let _postSyncCallback = null;
 
 function errorCarga(err) {
   cargando = false;
@@ -1995,7 +2005,7 @@ function render() {
     initInspeccion();
     return;
   }
-  if(vehs.length === 0 && clis.length === 0 && !cargando && currentTab !== "tasadora" && currentTab !== "cotizaciones" && currentTab !== "inspeccion" && currentTab !== "flyer" && currentTab !== "performance") {
+  if(vehs.length === 0 && clis.length === 0 && !cargando && currentTab !== "tasadora" && currentTab !== "cotizaciones" && currentTab !== "inspeccion" && currentTab !== "flyer" && currentTab !== "performance" && currentTab !== "auditoria") {
     content.innerHTML = renderEmpty();
     return;
   }
@@ -2011,6 +2021,7 @@ function render() {
     // La carga inicial se hace UNA vez al cambiar de tab (setTab) o con el botón Recargar.
   }
   else if(currentTab === "performance") content.innerHTML = renderPerformance();
+  else if(currentTab === "auditoria")  content.innerHTML = renderAuditoria();
   else if(currentTab === "inspeccion") { content.innerHTML = renderInspeccion(); initInspeccion(); }
   else if(currentTab === "flyer")      { content.innerHTML = renderFlyer();      initFlyer();      }
 }
@@ -2369,6 +2380,9 @@ function setTab(t) {
   if (t === "cotizaciones" && !cotizacionesCargando && (!cotizaciones || cotizaciones.length === 0)) {
     cargarCotizaciones();
   }
+  if (t === "auditoria" && !auditoriaCargando && (!auditoriaData || auditoriaData.length === 0)) {
+    cargarAuditoria();
+  }
 }
 
 // ────────────── MÓDULO TASADORA · VALOR DE MERCADO ──────────────
@@ -2574,15 +2588,18 @@ function renderTasadora() {
 
         <!-- Acciones -->
         <div class="grid grid-cols-2 gap-3">
-          <button onclick="aprobarCompra()" class="bg-gradient-to-br from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:from-emerald-700 active:to-green-800 text-white rounded-xl py-4 font-bold shadow-lg shadow-emerald-500/20 transition">
-            💰 Aprobar Compra
+          <button onclick="guardarEnPipeline('En Inspección')" class="bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 active:from-purple-700 active:to-purple-800 text-white rounded-xl py-4 font-bold shadow-lg shadow-purple-500/20 transition">
+            🔧 Guardar y pasar a Inspección
           </button>
-          <button onclick="guardarCotizacion()" class="bg-gradient-to-br from-orange-600 to-amber-700 hover:from-orange-500 hover:to-amber-600 active:from-orange-700 active:to-amber-800 text-white rounded-xl py-4 font-bold shadow-lg shadow-orange-500/20 transition">
-            ⏳ Guardar Cotización
+          <button onclick="guardarEnPipeline('Cotización')" class="bg-gradient-to-br from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 active:from-sky-700 active:to-blue-800 text-white rounded-xl py-4 font-bold shadow-lg shadow-sky-500/20 transition">
+            🆕 Guardar Cotización
           </button>
         </div>
 
-        <div class="text-center text-xs text-slate-600 mt-2">Fórmula: Oferta = Valor Comercial − Deducciones − Utilidad Esperada</div>
+        <div class="text-center text-xs text-slate-500 mt-2">
+          💡 <b>Cotización</b> = cliente aún lo piensa (seguimiento). <b>Inspección</b> = cliente aceptó, va al taller.<br>
+          El seguimiento y la compra final se gestionan desde la pestaña <b>📋 Pipeline</b>.
+        </div>
       </div>
 
     </div>
@@ -2627,30 +2644,28 @@ function actualizarResultados() {
   document.getElementById("desgInversion").textContent = money(r.inversionTotal);
 }
 
-function aprobarCompra() {
-  const r = calcularOferta(tasadoraData);
-  if(!tasadoraData.placa) { toast("⚠️ Ingresa la placa del vehículo", "error"); return; }
-  if(r.precioMaxOferta <= 0) { toast("⚠️ El precio máximo de oferta no es válido", "error"); return; }
-  confirmAccion({
-    title: 'Aprobar compra',
-    message: `¿Aprobar compra de ${tasadoraData.placa} con oferta máxima de ${money(r.precioMaxOferta)}?`,
-    confirmText: '✅ Aprobar',
-    icon: '💰'
-  }).then(ok => { if (ok) enviarTasacion(r, "Aprobada"); });
-}
-
-function guardarCotizacion() {
+// Guarda la tasación en el pipeline con el estado inicial elegido
+function guardarEnPipeline(estadoInicial) {
   const r = calcularOferta(tasadoraData);
   if(!tasadoraData.placa) { toast("⚠️ Ingresa la placa del vehículo", "error"); return; }
   if(r.valorComercial <= 0) { toast("⚠️ Ingresa el valor comercial", "error"); return; }
-  enviarTasacion(r, "Cotización");
+  if (estadoInicial === 'En Inspección') {
+    confirmAccion({
+      title: 'Pasar a inspección',
+      message: `El cliente aceptó. ${tasadoraData.placa} entra a inspección de taller. Podrás fijar el precio final desde el Pipeline.`,
+      confirmText: '🔧 Sí, a inspección',
+      icon: '🔧'
+    }).then(ok => { if (ok) enviarTasacion(r, estadoInicial); });
+  } else {
+    enviarTasacion(r, estadoInicial);
+  }
 }
 
 let _tasacionEnVuelo = false;
 function enviarTasacion(r, estado) {
   if (_tasacionEnVuelo) return;  // Evita doble-click
   _tasacionEnVuelo = true;
-  document.querySelectorAll('[onclick*="aprobarCompra"], [onclick*="guardarCotizacion"]').forEach(b => b.disabled = true);
+  document.querySelectorAll('[onclick*="guardarEnPipeline"]').forEach(b => b.disabled = true);
 
   const payload = {
     placa: tasadoraData.placa,
@@ -2676,7 +2691,7 @@ function enviarTasacion(r, estado) {
 
   const unlock = () => {
     _tasacionEnVuelo = false;
-    document.querySelectorAll('[onclick*="aprobarCompra"], [onclick*="guardarCotizacion"]').forEach(b => b.disabled = false);
+    document.querySelectorAll('[onclick*="guardarEnPipeline"]').forEach(b => b.disabled = false);
   };
 
   if(typeof google !== "undefined" && google.script && google.script.run) {
@@ -2699,101 +2714,114 @@ function enviarTasacion(r, estado) {
   }
 }
 
-// ────────────── MÓDULO COTIZACIONES (HISTORIAL) ──────────────
+// ────────────── MÓDULO PIPELINE DE COMPRAS (EMBUDO) ──────────────
 let cotizaciones = [];
 let cotizacionesCargando = false;
 let filtroCotizaciones = "Todas";
 
+// Definición del embudo: orden, label, color, icono
+const EMBUDO_ESTADOS = [
+  { key: 'Cotización',     label: 'Cotización',     icon: '🆕', color: '#38bdf8' },
+  { key: 'En Seguimiento', label: 'En Seguimiento', icon: '⏰', color: '#f59e0b' },
+  { key: 'En Inspección',  label: 'En Inspección',  icon: '🔧', color: '#a855f7' },
+  { key: 'Precio Final',   label: 'Precio Final',   icon: '💰', color: '#eab308' },
+  { key: 'Comprada',       label: 'Comprada',       icon: '✅', color: '#22c55e' },
+  { key: 'Descartada',     label: 'Descartada',     icon: '❌', color: '#ef4444' }
+];
+
+// Normaliza estados viejos ("Aprobada") al nuevo vocabulario
+function _normalizarEstadoEmbudo(estado) {
+  const e = String(estado || '').trim();
+  if (e === 'Aprobada') return 'Comprada';
+  if (!e) return 'Cotización';
+  // Si ya es uno de los 6, respetarlo
+  if (EMBUDO_ESTADOS.some(s => s.key === e)) return e;
+  return 'Cotización';  // default para valores desconocidos
+}
+
 function renderCotizaciones() {
-  const filtered = cotizaciones.filter(c => {
-    if(filtroCotizaciones === "Todas") return true;
-    return c.Estado === filtroCotizaciones;
-  });
-
-  const totalAprobadas = cotizaciones.filter(c => c.Estado === "Aprobada").length;
-  const totalCotizaciones = cotizaciones.filter(c => c.Estado === "Cotización").length;
-  const sumOfertas = filtered.reduce((s,c)=>s+(Number(c.Precio_Maximo_Oferta)||0),0);
-
-  let html = `<div class="max-w-6xl mx-auto">
+  let html = `<div class="max-w-full mx-auto">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-      <h1 class="page-heading">📋 Pipeline de Compras</h1>
-      <button onclick="cargarCotizaciones()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1 border border-slate-700 rounded">🔄 Recargar</button>
-    </div>
-
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-        <div class="text-xs text-slate-500">Total Registros</div>
-        <div class="text-2xl font-extrabold text-sky-400 mt-1">${cotizaciones.length}</div>
+      <div>
+        <h1 class="page-heading">📋 Pipeline de Compras</h1>
+        <p class="text-slate-500 text-sm mt-1">Embudo de operaciones de compra. Haz clic en una tarjeta para avanzarla de etapa.</p>
       </div>
-      <div class="bg-emerald-900/20 border border-emerald-500/40 rounded-xl p-4">
-        <div class="text-xs text-emerald-300">✅ Aprobadas</div>
-        <div class="text-2xl font-extrabold text-emerald-400 mt-1">${totalAprobadas}</div>
-      </div>
-      <div class="bg-amber-900/20 border border-amber-500/40 rounded-xl p-4">
-        <div class="text-xs text-amber-300">⏳ Cotizaciones</div>
-        <div class="text-2xl font-extrabold text-amber-400 mt-1">${totalCotizaciones}</div>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-        <div class="text-xs text-slate-500">Suma Ofertas (filtrado)</div>
-        <div class="text-2xl font-extrabold text-sky-400 mt-1">${money(sumOfertas)}</div>
-      </div>
-    </div>
-
-    <div class="flex gap-2 mb-4 flex-wrap">
-      ${["Todas","Aprobada","Cotización"].map(f=>`
-        <button onclick="filtroCotizaciones='${f}';render()" class="${filtroCotizaciones===f?'bg-blue-600 text-white':'bg-slate-800 text-slate-400 hover:bg-slate-700'} rounded-lg px-4 py-2 text-sm font-semibold">${f==='Todas'?'📋 Todas':f==='Aprobada'?'✅ Aprobadas':'⏳ Cotizaciones'}</button>
-      `).join("")}
+      <button onclick="cargarCotizaciones()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);">🔄 Recargar</button>
     </div>`;
 
-  if(cotizacionesCargando) {
-    html += `<div class="text-center py-10"><div class="spinner mx-auto mb-3"></div><div class="text-slate-500 text-sm">Cargando cotizaciones...</div></div>`;
-  } else if(filtered.length === 0) {
-    html += `<div class="bg-slate-900 border border-slate-800 rounded-xl p-10 text-center">
-      <div class="text-5xl mb-3">📭</div>
-      <p class="text-slate-400">Sin cotizaciones ${filtroCotizaciones!=='Todas'?'en este filtro':'todavía'}.</p>
-      <p class="text-slate-500 text-xs mt-2">Ve a la pestaña ⚖️ Tasación para crear una.</p>
-    </div>`;
-  } else {
-    html += `<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-      <div class="overflow-x-auto">
-        <table>
-          <thead><tr>
-            ${["Fecha","Cliente","Vehículo","Placa","KM","Oferta Máx.","Margen","Estado","Usuario",""].map(h=>`<th>${h}</th>`).join("")}
-          </tr></thead>
-          <tbody>
-            ${filtered.map(c=>{
-              const cliNombre  = c.Cli_Nombre  || c.cliNombre  || '';
-              const cliCelular = c.Cli_Celular || c.cliCelular || '';
-              const cliNotas   = c.Cli_Notas   || c.cliNotas   || '';
-              const km         = c.KM || c.km || 0;
-              const waLink = cliCelular ? `https://wa.me/${String(cliCelular).replace(/[^0-9]/g,'')}` : '';
-              return `<tr class="${cliNotas?'group':''}" ${cliNotas?`title="${escAttr(cliNotas)}"`:''}>
-                <td class="text-slate-500 text-xs">${escHtml(c.Fecha)} ${escHtml(c.Hora)}</td>
-                <td>
-                  ${cliNombre
-                    ? `<div class="font-semibold text-slate-200">${escHtml(cliNombre)}</div>
-                       ${cliCelular ? `<div class="text-xs"><a href="${escAttr(waLink)}" target="_blank" class="text-emerald-400 hover:text-emerald-300">📱 ${escHtml(cliCelular)}</a></div>` : ''}
-                       ${cliNotas ? `<div class="text-[10px] text-slate-500 italic mt-0.5 max-w-[200px] truncate">💬 ${escHtml(cliNotas)}</div>` : ''}`
-                    : `<span class="text-slate-600 text-xs italic">— sin cliente —</span>`}
-                </td>
-                <td><div class="font-semibold">${escHtml(c.Marca)||"—"} ${escHtml(c.Modelo)}</div><div class="text-slate-500 text-xs">${escHtml(c.Anio)} · ${escHtml(c.Version)}</div></td>
-                <td class="font-bold">${escHtml(c.Placa)||"—"}</td>
-                <td class="text-slate-400 text-xs">${km ? parseInt(km).toLocaleString()+' km' : '—'}</td>
-                <td class="font-bold ${(Number(c.Precio_Maximo_Oferta)||0)>0?'text-emerald-300':'text-red-400'}">${money(c.Precio_Maximo_Oferta)}</td>
-                <td class="text-amber-400 text-xs">${c.Margen_Ganancia_Pct||0}%</td>
-                <td>${c.Estado==='Aprobada'?'<span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/50">✅ Aprobada</span>':'<span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/50">⏳ Cotización</span>'}</td>
-                <td class="text-slate-500 text-xs">${escHtml(c.Usuario)||"—"}</td>
-                <td><button onclick="eliminarCotizacion('${escAttr(c.ID_Operacion || c._rowIndex)}','${escAttr(c.Placa)}')" class="text-red-400 hover:text-red-300 text-sm" title="Eliminar">🗑</button></td>
-              </tr>`;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
+  if (cotizacionesCargando) {
+    html += `<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-slate-500 text-sm">Cargando pipeline...</div></div></div>`;
+    return html;
   }
 
-  html += `</div>`;
+  if (cotizaciones.length === 0) {
+    html += `<div class="card-flat py-12 px-6 text-center">
+      <div class="text-5xl mb-3 opacity-50">📭</div>
+      <div class="text-slate-300 font-semibold mb-1">Sin operaciones en el pipeline</div>
+      <div class="text-slate-500 text-sm mb-4">Ve a <b>💵 Compras</b> para registrar la primera tasación.</div>
+      <button onclick="setTab('tasadora')" class="btn-primary">💵 Ir a Compras</button>
+    </div></div>`;
+    return html;
+  }
+
+  // Agrupar por estado normalizado
+  const porEstado = {};
+  EMBUDO_ESTADOS.forEach(s => porEstado[s.key] = []);
+  cotizaciones.forEach(c => {
+    const est = _normalizarEstadoEmbudo(c.Estado);
+    if (!porEstado[est]) porEstado[est] = [];
+    porEstado[est].push(c);
+  });
+
+  // Resumen (KPIs de las columnas activas)
+  const activos = porEstado['Cotización'].length + porEstado['En Seguimiento'].length +
+                  porEstado['En Inspección'].length + porEstado['Precio Final'].length;
+  html += `<div class="flex gap-3 mb-4 flex-wrap text-xs">
+    <span class="text-slate-400">🔥 <b class="text-sky-400">${activos}</b> operaciones activas</span>
+    <span class="text-slate-400">✅ <b class="text-emerald-400">${porEstado['Comprada'].length}</b> compradas</span>
+    <span class="text-slate-400">❌ <b class="text-red-400">${porEstado['Descartada'].length}</b> descartadas</span>
+  </div>`;
+
+  // Tablero Kanban con scroll horizontal
+  html += `<div class="overflow-x-auto pb-3"><div class="flex gap-3" style="min-width:max-content;">`;
+  EMBUDO_ESTADOS.forEach(s => {
+    const cards = porEstado[s.key] || [];
+    html += `<div class="flex-shrink-0" style="width:260px;">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <span class="text-xs font-bold" style="color:${s.color}">${s.icon} ${s.label}</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:${s.color}22;color:${s.color}">${cards.length}</span>
+      </div>
+      <div class="space-y-2" style="min-height:60px;">
+        ${cards.length === 0
+          ? `<div class="text-center text-slate-600 text-[11px] py-4 rounded-lg" style="border:1px dashed var(--c-border);">vacío</div>`
+          : cards.map(c => _embudoCardHTML(c, s)).join('')}
+      </div>
+    </div>`;
+  });
+  html += `</div></div></div>`;
   return html;
+}
+
+function _embudoCardHTML(c, estadoDef) {
+  const cliNombre  = c.Cli_Nombre  || '';
+  const cliCelular = c.Cli_Celular || '';
+  const km         = c.KM || 0;
+  const idOp       = c.ID_Operacion || c._rowIndex || '';
+  const oferta     = Number(c.Precio_Maximo_Oferta) || 0;
+  const precioFinal = Number(c.Precio_Final_Compra) || 0;
+  const veh = `${escHtml(c.Marca||'')} ${escHtml(c.Modelo||'')}`.trim() || '(sin vehículo)';
+
+  return `<div onclick="abrirEmbudoCard('${escAttr(idOp)}')" class="card-elevated p-3 cursor-pointer" style="border-left:3px solid ${estadoDef.color};">
+    <div class="font-bold text-sm text-slate-100 truncate">${veh}</div>
+    <div class="text-slate-500 text-[11px] mb-1.5">${escHtml(c.Anio||'')} ${c.Placa?'· '+escHtml(c.Placa):''} ${km?'· '+parseInt(km).toLocaleString()+'km':''}</div>
+    ${cliNombre
+      ? `<div class="text-[11px] text-slate-300 truncate">👤 ${escHtml(cliNombre)}</div>`
+      : `<div class="text-[11px] text-slate-600 italic">sin cliente</div>`}
+    <div class="flex items-center justify-between mt-2">
+      <span class="text-[10px] text-slate-500">${estadoDef.key==='Comprada'&&precioFinal>0?'Compra:':'Oferta máx:'}</span>
+      <span class="text-xs font-bold" style="color:${estadoDef.color}">${money(estadoDef.key==='Comprada'&&precioFinal>0?precioFinal:oferta)}</span>
+    </div>
+  </div>`;
 }
 
 let _cotInFlight = false;  // Mutex que previene re-entrar si ya hay un fetch en curso
@@ -2843,6 +2871,297 @@ function eliminarCotizacion(idOrRow, placa) {
         .eliminarTasacion(idOrRow);
     }
   });
+}
+
+// ─── EMBUDO: modal de detalle + acciones contextuales por estado ───
+
+// Transiciones permitidas según estado actual
+const EMBUDO_TRANSICIONES = {
+  'Cotización':     [{to:'En Seguimiento', label:'⏰ Marcar seguimiento'}, {to:'En Inspección', label:'🔧 Pasar a inspección'}, {to:'Descartada', label:'❌ Descartar', danger:true}],
+  'En Seguimiento': [{to:'En Inspección', label:'🔧 Cliente aceptó · Inspección'}, {to:'Descartada', label:'❌ Descartar', danger:true}],
+  'En Inspección':  [{to:'Precio Final', label:'💰 Fijar precio final'}, {to:'Descartada', label:'❌ Descartar', danger:true}],
+  'Precio Final':   [{to:'__COMPRAR__', label:'✅ Confirmar compra → Stock', primary:true}, {to:'Descartada', label:'❌ Descartar', danger:true}],
+  'Comprada':       [],
+  'Descartada':     [{to:'Cotización', label:'♻️ Reactivar'}]
+};
+
+function abrirEmbudoCard(idOp) {
+  const c = cotizaciones.find(x => String(x.ID_Operacion || x._rowIndex) === String(idOp));
+  if (!c) { toast('⚠️ Operación no encontrada', 'error'); return; }
+
+  const estado = _normalizarEstadoEmbudo(c.Estado);
+  const def = EMBUDO_ESTADOS.find(s => s.key === estado) || EMBUDO_ESTADOS[0];
+  const cliCelular = c.Cli_Celular || '';
+  const waLink = cliCelular ? `https://wa.me/${String(cliCelular).replace(/[^0-9]/g,'')}` : '';
+  const km = c.KM || 0;
+  const oferta = Number(c.Precio_Maximo_Oferta) || 0;
+  const precioFinal = Number(c.Precio_Final_Compra) || 0;
+  const transiciones = EMBUDO_TRANSICIONES[estado] || [];
+
+  const datos = [
+    ['Vehículo', `${c.Marca||''} ${c.Modelo||''} ${c.Version||''}`.trim() || '—'],
+    ['Año', c.Anio || '—'],
+    ['Placa', c.Placa || '—'],
+    ['KM', km ? parseInt(km).toLocaleString()+' km' : '—'],
+    ['Valor comercial', money(c.Valor_Comercial)],
+    ['Oferta máxima', money(oferta)],
+    ['Margen', (c.Margen_Ganancia_Pct||0)+'%']
+  ];
+  if (precioFinal > 0) datos.push(['💰 Precio final compra', money(precioFinal)]);
+  if (c.Fecha_Compra) datos.push(['Fecha compra', c.Fecha_Compra]);
+  if (c.ID_Vehiculo_Stock) datos.push(['En Stock', '🚗 ' + c.ID_Vehiculo_Stock]);
+
+  let body = `
+    <div class="flex items-center gap-2 mb-4">
+      <span class="badge" style="background:${def.color}22;color:${def.color};border:1px solid ${def.color}55">${def.icon} ${def.label}</span>
+      <span class="text-slate-500 text-xs">${escHtml(c.ID_Operacion||'')}</span>
+    </div>
+
+    <div class="bg-slate-800/60 rounded-lg p-3 mb-4">
+      <div class="text-sky-400 text-xs font-bold mb-2">👤 Cliente</div>
+      ${c.Cli_Nombre
+        ? `<div class="font-semibold text-slate-100">${escHtml(c.Cli_Nombre)}</div>
+           ${cliCelular ? `<a href="${escAttr(waLink)}" target="_blank" class="text-emerald-400 hover:text-emerald-300 text-sm">📱 ${escHtml(cliCelular)} — abrir WhatsApp</a>` : ''}
+           <div class="mt-2">
+             <label class="text-[10px]">Notas / Seguimiento</label>
+             <textarea id="embudoNotas" rows="2" class="mt-1" placeholder="Ej: llamará el viernes, lo consultará...">${escHtml(c.Cli_Notas||'')}</textarea>
+             <button onclick="guardarNotasEmbudo('${escAttr(c.ID_Operacion)}')" class="text-xs text-sky-400 hover:text-sky-300 mt-1 font-semibold">💾 Guardar notas</button>
+           </div>`
+        : `<div class="text-slate-500 text-sm italic">Sin datos de cliente registrados</div>`}
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 mb-4 text-sm">
+      ${datos.map(([k,v])=>`<div class="bg-slate-800 rounded p-2"><div class="text-slate-500 text-[10px]">${k}</div><div class="font-semibold mt-0.5">${escHtml(v)}</div></div>`).join('')}
+    </div>`;
+
+  // Sección precio final si está en Inspección o Precio Final
+  if (estado === 'En Inspección' || estado === 'Precio Final') {
+    body += `<div class="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3 mb-4">
+      <label class="text-yellow-300 text-xs font-bold">💰 Precio Final de Compra ($)</label>
+      <input type="number" id="embudoPrecioFinal" min="0" step="100" value="${precioFinal||''}" placeholder="Ej: 14500" class="mt-1 text-lg font-bold">
+      <div class="text-[10px] text-slate-500 mt-1">Precio real acordado tras la inspección. Se usará como costo de compra al pasar a Stock.</div>
+    </div>`;
+  }
+
+  // Acciones contextuales
+  body += `<div class="flex flex-col gap-2 mt-4">`;
+  transiciones.forEach(t => {
+    if (t.to === '__COMPRAR__') {
+      body += `<button onclick="confirmarCompraEmbudo('${escAttr(c.ID_Operacion)}')" class="btn-primary" style="background:linear-gradient(180deg,#16a34a,#15803d);">${t.label}</button>`;
+    } else {
+      const cls = t.danger ? 'border border-red-500/40 text-red-400 hover:bg-red-500/10'
+                : t.primary ? 'btn-primary'
+                : 'border border-slate-700 text-slate-300 hover:bg-slate-800';
+      body += `<button onclick="moverEmbudo('${escAttr(c.ID_Operacion)}','${escAttr(t.to)}')" class="${cls} rounded-lg py-2.5 text-sm font-semibold">${t.label}</button>`;
+    }
+  });
+  body += `<button onclick="closeModal()" class="text-slate-500 text-xs mt-1 hover:text-slate-300">Cerrar</button>`;
+  body += `</div>`;
+
+  modal(`${def.icon} Operación de Compra`, body);
+}
+
+function _embudoRun(fnName, payload, okMsg) {
+  if (typeof google === "undefined" || !google.script || !google.script.run) {
+    toast('⚠️ Modo preview', 'error'); return;
+  }
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r && r.exito === false) { toast('⚠️ ' + (r.error||'Error'), 'error'); return; }
+      closeModal();
+      toast(okMsg || (r && r.mensaje) || '✅ Actualizado', 'success');
+      cargarCotizaciones();
+    })
+    .withFailureHandler(err => toast('⚠️ Error: ' + (err.message||err), 'error'))
+    [fnName](payload);
+}
+
+function moverEmbudo(idOp, nuevoEstado) {
+  // Si vamos a "Precio Final" y hay input de precio, lo guardamos también
+  const campos = {};
+  const inpPF = document.getElementById('embudoPrecioFinal');
+  if (inpPF && parseFloat(inpPF.value) > 0) campos.Precio_Final_Compra = parseFloat(inpPF.value);
+  _embudoRun('actualizarTasacion', { idOperacion: idOp, estado: nuevoEstado, campos: campos }, '✅ Movido a: ' + nuevoEstado);
+}
+
+function guardarNotasEmbudo(idOp) {
+  const notas = document.getElementById('embudoNotas')?.value || '';
+  _embudoRun('actualizarTasacion', { idOperacion: idOp, campos: { Cli_Notas: notas } }, '💾 Notas guardadas');
+}
+
+function confirmarCompraEmbudo(idOp) {
+  const inpPF = document.getElementById('embudoPrecioFinal');
+  const precioFinal = inpPF ? parseFloat(inpPF.value) || 0 : 0;
+  if (precioFinal <= 0) {
+    toast('⚠️ Ingresa el precio final de compra antes de confirmar', 'error');
+    if (inpPF) inpPF.focus();
+    return;
+  }
+  confirmAccion({
+    title: 'Confirmar compra',
+    message: `Se registrará la compra por ${money(precioFinal)} y el vehículo pasará automáticamente al Stock como "Disponible". ¿Confirmar?`,
+    confirmText: '✅ Confirmar y pasar a Stock',
+    icon: '🚗'
+  }).then(ok => {
+    if (!ok) return;
+    if (typeof google === "undefined" || !google.script || !google.script.run) {
+      toast('⚠️ Modo preview', 'error'); return;
+    }
+    google.script.run
+      .withSuccessHandler(r => {
+        if (r && r.exito === false) { toast('⚠️ ' + (r.error||'Error'), 'error'); return; }
+        closeModal();
+        toast((r && r.mensaje) || '✅ Compra confirmada · vehículo en Stock', 'success');
+        cargarCotizaciones();
+        // Tras refrescar el Stock, buscar compradores compatibles con el auto nuevo
+        const placaNueva = (r && r.idVehiculo) || '';
+        _postSyncCallback = () => notificarCompradoresCompatibles(placaNueva);
+        sincronizar();
+      })
+      .withFailureHandler(err => toast('⚠️ Error: ' + (err.message||err), 'error'))
+      .confirmarCompra({ idOperacion: idOp, precioFinal: precioFinal });
+  });
+}
+
+// Tras entrar un auto al Stock, revisa la base de Compradores y avisa si hay match
+function notificarCompradoresCompatibles(placa) {
+  if (!placa) return;
+  const veh = vehs.find(v => String(v.placa).toUpperCase() === String(placa).toUpperCase());
+  if (!veh) return;
+  const matches = (typeof findMatchesForVeh === 'function') ? findMatchesForVeh(veh) : [];
+  if (!matches || matches.length === 0) return;
+
+  const top = matches.slice(0, 5);
+  const body = `
+    <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 mb-4">
+      <div class="text-emerald-400 font-bold text-sm">🚗 ${escHtml(veh.marca)} ${escHtml(veh.modelo)} ${escHtml(veh.anio)} entró al Stock</div>
+      <div class="text-slate-400 text-xs mt-1">Encontramos <b>${matches.length}</b> comprador${matches.length>1?'es':''} registrado${matches.length>1?'s':''} que buscan algo así:</div>
+    </div>
+    <div class="space-y-2">
+      ${top.map(m => {
+        const cel = m.cliente.celular || '';
+        const wa = cel ? `https://wa.me/${String(cel).replace(/[^0-9]/g,'')}?text=${encodeURIComponent('Hola '+(m.cliente.nombre||'')+', ingresó a nuestro stock un '+veh.marca+' '+veh.modelo+' '+veh.anio+' que puede interesarte.')}` : '';
+        return `<div class="bg-slate-800/60 rounded-lg p-3 flex items-center justify-between gap-2">
+          <div>
+            <div class="font-semibold text-slate-100 text-sm">${STATUS_EMOJI[m.cliente.status]||''} ${escHtml(m.cliente.nombre||'Cliente')}</div>
+            <div class="text-slate-500 text-xs">Compatibilidad ${m.score}/100 · presupuesto ${money(m.cliente.presupuesto)}</div>
+          </div>
+          ${wa ? `<a href="${escAttr(wa)}" target="_blank" class="btn-primary text-xs whitespace-nowrap" style="background:linear-gradient(180deg,#16a34a,#15803d);padding:8px 12px;">📱 Contactar</a>` : `<span class="text-slate-600 text-xs">sin celular</span>`}
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="flex justify-end mt-4">
+      <button onclick="closeModal();setTab('matches')" class="text-sky-400 text-xs font-semibold hover:text-sky-300">Ver todas las oportunidades →</button>
+    </div>`;
+  modal('🎯 Compradores compatibles', body);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO AUDITORÍA — historial de cambios (quién, qué, cuándo)
+// ═══════════════════════════════════════════════════════════════
+let auditoriaData = [];
+let auditoriaCargando = false;
+let _audInFlight = false;
+let filtroAudTipo = "Todos";
+let filtroAudUsuario = "Todos";
+let searchAud = "";
+
+function cargarAuditoria() {
+  if (_audInFlight) return;
+  if(typeof google === "undefined" || !google.script || !google.script.run) {
+    auditoriaData = []; auditoriaCargando = false; return;
+  }
+  _audInFlight = true;
+  auditoriaCargando = true;
+  render();
+  google.script.run
+    .withSuccessHandler(r => {
+      _audInFlight = false;
+      auditoriaData = (r && r.entries) ? r.entries : [];
+      auditoriaCargando = false;
+      render();
+    })
+    .withFailureHandler(err => {
+      _audInFlight = false;
+      auditoriaCargando = false;
+      auditoriaData = [];
+      toast("⚠️ No se pudo cargar la auditoría: " + (err.message||err), "error");
+      render();
+    })
+    .obtenerAuditoria(400);
+}
+
+function renderAuditoria() {
+  const TIPO_ICON = { Vehiculo:'🚗', Cliente:'🛒', Tasacion:'💵', Usuario:'👤' };
+  const ACCION_COLOR = { Crear:'#22c55e', Editar:'#38bdf8', Eliminar:'#ef4444', Comprar:'#a855f7' };
+
+  // Opciones de filtro derivadas de la data
+  const usuarios = ['Todos', ...Array.from(new Set(auditoriaData.map(a=>a.usuario).filter(Boolean)))];
+  const tipos = ['Todos', 'Vehiculo', 'Cliente', 'Tasacion', 'Usuario'];
+
+  const filtrada = auditoriaData.filter(a => {
+    if (filtroAudTipo !== "Todos" && a.tipo !== filtroAudTipo) return false;
+    if (filtroAudUsuario !== "Todos" && a.usuario !== filtroAudUsuario) return false;
+    if (searchAud) {
+      const q = searchAud.toLowerCase();
+      const blob = `${a.usuario} ${a.tipo} ${a.accion} ${a.descripcion} ${a.id_entidad}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+
+  let html = `<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+      <div>
+        <h1 class="page-heading">📜 Auditoría de Cambios</h1>
+        <p class="text-slate-500 text-sm mt-1">Registro de quién hizo qué y cuándo. Últimos ${auditoriaData.length} movimientos.</p>
+      </div>
+      <button onclick="cargarAuditoria()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);">🔄 Recargar</button>
+    </div>
+
+    <div class="flex gap-2 mb-4 flex-wrap items-center">
+      <input id="searchAudInput" placeholder="🔍 Buscar placa, cliente, cambio..." value="${escAttr(searchAud)}"
+        oninput="searchAud=this.value;render();setTimeout(()=>document.getElementById('searchAudInput')?.focus(),0)" class="flex-1 min-w-[220px]">
+      <select onchange="filtroAudTipo=this.value;render()" class="max-w-[160px]">
+        ${tipos.map(t=>`<option ${filtroAudTipo===t?'selected':''} value="${escAttr(t)}">${t==='Todos'?'Todos los tipos':(TIPO_ICON[t]||'')+' '+t}</option>`).join('')}
+      </select>
+      <select onchange="filtroAudUsuario=this.value;render()" class="max-w-[160px]">
+        ${usuarios.map(u=>`<option ${filtroAudUsuario===u?'selected':''} value="${escAttr(u)}">${u==='Todos'?'Todos los usuarios':'👤 '+u}</option>`).join('')}
+      </select>
+    </div>`;
+
+  if (auditoriaCargando) {
+    html += `<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-slate-500 text-sm">Cargando historial...</div></div>`;
+  } else if (filtrada.length === 0) {
+    html += `<div class="card-flat py-12 px-6 text-center">
+      <div class="text-5xl mb-3 opacity-50">📭</div>
+      <div class="text-slate-300 font-semibold mb-1">Sin registros de auditoría</div>
+      <div class="text-slate-500 text-sm">${auditoriaData.length===0?'Los cambios que hagas a partir de ahora quedarán registrados aquí.':'Prueba con otro filtro.'}</div>
+    </div>`;
+  } else {
+    html += `<div class="card-flat overflow-hidden">
+      <div class="overflow-x-auto">
+        <table>
+          <thead><tr>${["Fecha","Hora","Usuario","Tipo","Acción","Detalle","ID"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+          <tbody>
+            ${filtrada.map(a=>`<tr>
+              <td class="text-slate-400 text-xs whitespace-nowrap">${escHtml(a.fecha)}</td>
+              <td class="text-slate-500 text-xs whitespace-nowrap">${escHtml(a.hora)}</td>
+              <td class="font-semibold text-slate-200 text-xs whitespace-nowrap">👤 ${escHtml(a.usuario)}</td>
+              <td class="whitespace-nowrap">${(TIPO_ICON[a.tipo]||'')} <span class="text-slate-400 text-xs">${escHtml(a.tipo)}</span></td>
+              <td class="whitespace-nowrap"><span class="badge" style="background:${(ACCION_COLOR[a.accion]||'#64748b')}22;color:${ACCION_COLOR[a.accion]||'#94a3b8'};border:1px solid ${(ACCION_COLOR[a.accion]||'#64748b')}55">${escHtml(a.accion)}</span></td>
+              <td class="text-slate-300 text-xs max-w-[340px]">${escHtml(a.descripcion)}</td>
+              <td class="text-slate-600 text-[10px] font-mono">${escHtml(a.id_entidad)}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="text-slate-600 text-xs mt-3 text-center">Mostrando ${filtrada.length} de ${auditoriaData.length} registros</div>`;
+  }
+
+  html += `</div>`;
+  return html;
 }
 
 // ═══════════════════════════════════════════════════════════════
