@@ -721,7 +721,7 @@
      Detecta entorno y usa fetch() si no estamos en Apps Script.
      ============================================================ -->
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAc7EXfPhCJHD8F4QCJPKvmfrYaqP0cRfaSeQnL2eyxiqSp4uTajND3DLgCk4VMAY2/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyU_6ERr8X3LlO4Vj7kbNXHWt4fRWmvolJoRp10il2alvFjvzqlwTk8HBLSugHzh9Lw/exec';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -2186,32 +2186,23 @@ function renderDashboard(alertasSOAT, alertasRev, alertasCli) {
   return html;
 }
 
-function renderInventario() {
-  const filtered = vehs.filter(v=>{
-    const q = searchVeh.toLowerCase();
-    return (v.marca+v.modelo+v.placa+v.anio+v.version).toLowerCase().includes(q) && (filterEstado==="Todos" || v.estado===filterEstado);
-  });
+function _vehsFiltrados() {
+  const q = searchVeh.toLowerCase();
+  return vehs.filter(v =>
+    (v.marca+v.modelo+v.placa+v.anio+v.version).toLowerCase().includes(q) &&
+    (filterEstado==="Todos" || v.estado===filterEstado)
+  );
+}
 
-  let html = `<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-    <h1 class="page-heading">🚗 Stock de Vehículos (${filtered.length})</h1>
-    <button onclick="openVehModal()" class="btn-primary">+ Nuevo Vehículo</button>
-  </div>
-  <div class="flex gap-2 mb-4 flex-wrap">
-    <input id="searchVehInput" placeholder="🔍 Buscar marca, modelo, placa..." value="${searchVeh}" oninput="searchVeh=this.value;render();setTimeout(()=>document.getElementById('searchVehInput')?.focus(),0)" class="flex-1 min-w-[200px]">
-    <select onchange="filterEstado=this.value;render()" class="max-w-[160px]">
-      <option ${filterEstado==="Todos"?"selected":""}>Todos</option>
-      ${ESTADOS.map(e=>`<option ${filterEstado===e?"selected":""}>${e}</option>`).join("")}
-    </select>
-  </div>
-  <div class="grid gap-3">`;
-
-  if(filtered.length===0) html += `<div class="card-flat py-12 px-6 text-center">
+function _vehResultsHTML(filtered) {
+  if (filtered.length===0) return `<div class="card-flat py-12 px-6 text-center">
     <div class="text-5xl mb-3 opacity-50">🚗</div>
     <div class="text-slate-300 font-semibold mb-1">Sin vehículos en stock</div>
     <div class="text-slate-500 text-sm mb-4">${searchVeh ? 'Prueba con otra búsqueda' : 'Agrega tu primer vehículo al inventario'}</div>
     ${!searchVeh ? `<button onclick="openVehModal()" class="btn-primary">+ Nuevo Vehículo</button>` : ''}
   </div>`;
 
+  let html = '';
   filtered.forEach(v=>{
     const ct = calcCostoTotal(v);
     const d = calcDiasStock(v);
@@ -2245,40 +2236,84 @@ function renderInventario() {
       ${v.comentarios?`<div class="mt-2 text-slate-500 text-xs italic">💬 ${escHtml(v.comentarios)}</div>`:""}
     </div>`;
   });
-
-  html += `</div>`;
   return html;
 }
 
-function renderCRM() {
-  const filtered = clis.filter(c=>{
-    const q = searchCli.toLowerCase();
-    return (c.nombre+c.celular+c.marcaBusca).toLowerCase().includes(q) && (filterStatus==="Todos" || c.status===filterStatus);
-  });
+// Actualiza SOLO la lista de resultados, sin recrear el input de búsqueda
+// (evita que el teclado de Android invierta las letras al escribir).
+function filtrarStockLive() {
+  const cont = document.getElementById('vehResults');
+  if (!cont) return;
+  const filtered = _vehsFiltrados();
+  cont.innerHTML = _vehResultsHTML(filtered);
+  const cnt = document.getElementById('vehCount');
+  if (cnt) cnt.textContent = filtered.length;
+}
 
+function renderInventario() {
+  const filtered = _vehsFiltrados();
+
+  return `<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+    <h1 class="page-heading">🚗 Stock de Vehículos (<span id="vehCount">${filtered.length}</span>)</h1>
+    <button onclick="openVehModal()" class="btn-primary">+ Nuevo Vehículo</button>
+  </div>
+  <div class="flex gap-2 mb-4 flex-wrap">
+    <input id="searchVehInput" placeholder="🔍 Buscar marca, modelo, placa..." value="${escAttr(searchVeh)}" oninput="searchVeh=this.value;filtrarStockLive()" class="flex-1 min-w-[200px]">
+    <select onchange="filterEstado=this.value;filtrarStockLive()" class="max-w-[160px]">
+      <option ${filterEstado==="Todos"?"selected":""}>Todos</option>
+      ${ESTADOS.map(e=>`<option ${filterEstado===e?"selected":""}>${e}</option>`).join("")}
+    </select>
+  </div>
+  <div id="vehResults" class="grid gap-3">${_vehResultsHTML(filtered)}</div>`;
+}
+
+function _clisFiltrados() {
+  const q = searchCli.toLowerCase();
+  const filtered = clis.filter(c =>
+    (c.nombre+c.celular+c.marcaBusca).toLowerCase().includes(q) &&
+    (filterStatus==="Todos" || c.status===filterStatus)
+  );
   const sortOrder = {Caliente:0, Tibio:1, "Frío":2, Descartado:3};
   filtered.sort((a,b)=>(sortOrder[a.status]??99)-(sortOrder[b.status]??99));
+  return filtered;
+}
 
-  let html = `<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-    <h1 class="page-heading">🛒 Compradores (${filtered.length})</h1>
+// Actualiza SOLO la lista, sin recrear el input (evita letras al revés en Android).
+function filtrarCliLive() {
+  const cont = document.getElementById('cliResults');
+  if (!cont) return;
+  const filtered = _clisFiltrados();
+  cont.innerHTML = _cliResultsHTML(filtered);
+  const cnt = document.getElementById('cliCount');
+  if (cnt) cnt.textContent = filtered.length;
+}
+
+function renderCRM() {
+  const filtered = _clisFiltrados();
+
+  return `<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+    <h1 class="page-heading">🛒 Compradores (<span id="cliCount">${filtered.length}</span>)</h1>
     <button onclick="openCliModal()" class="btn-primary">+ Nuevo Cliente</button>
   </div>
   <div class="flex gap-2 mb-4 flex-wrap">
-    <input id="searchCliInput" placeholder="🔍 Buscar nombre, celular..." value="${searchCli}" oninput="searchCli=this.value;render();setTimeout(()=>document.getElementById('searchCliInput')?.focus(),0)" class="flex-1 min-w-[200px]">
-    <select onchange="filterStatus=this.value;render()" class="max-w-[160px]">
+    <input id="searchCliInput" placeholder="🔍 Buscar nombre, celular..." value="${escAttr(searchCli)}" oninput="searchCli=this.value;filtrarCliLive()" class="flex-1 min-w-[200px]">
+    <select onchange="filterStatus=this.value;filtrarCliLive()" class="max-w-[160px]">
       <option ${filterStatus==="Todos"?"selected":""}>Todos</option>
       ${STATUS_CRM.map(s=>`<option ${filterStatus===s?"selected":""}>${s}</option>`).join("")}
     </select>
-  </div>`;
+  </div>
+  <div id="cliResults" class="grid gap-3">${_cliResultsHTML(filtered)}</div>`;
+}
 
-  if(filtered.length===0) html += `<div class="card-flat py-12 px-6 text-center">
+function _cliResultsHTML(filtered) {
+  if(filtered.length===0) return `<div class="card-flat py-12 px-6 text-center">
     <div class="text-5xl mb-3 opacity-50">👥</div>
     <div class="text-slate-300 font-semibold mb-1">Sin clientes registrados</div>
     <div class="text-slate-500 text-sm mb-4">${searchCli || filterStatus !== 'Todos' ? 'Prueba con otro filtro' : 'Empieza a construir tu base de clientes'}</div>
     ${!searchCli && filterStatus === 'Todos' ? `<button onclick="openCliModal()" class="btn-primary">+ Nuevo Cliente</button>` : ''}
   </div>`;
 
-  html += `<div class="grid gap-3">`;
+  let html = '';
   filtered.forEach(c=>{
     const sinContacto = ["Caliente","Tibio"].includes(c.status) && c.fechaUltimoContacto && diffDays(c.fechaUltimoContacto,today())>=7;
     const ms = findMatchesForCli(c);
@@ -2310,7 +2345,6 @@ function renderCRM() {
       </div>`:""}
     </div>`;
   });
-  html += `</div>`;
   return html;
 }
 
@@ -3115,15 +3149,8 @@ function cargarAuditoria() {
     .obtenerAuditoria(400);
 }
 
-function renderAuditoria() {
-  const TIPO_ICON = { Vehiculo:'🚗', Cliente:'🛒', Tasacion:'💵', Usuario:'👤' };
-  const ACCION_COLOR = { Crear:'#22c55e', Editar:'#38bdf8', Eliminar:'#ef4444', Comprar:'#a855f7' };
-
-  // Opciones de filtro derivadas de la data
-  const usuarios = ['Todos', ...Array.from(new Set(auditoriaData.map(a=>a.usuario).filter(Boolean)))];
-  const tipos = ['Todos', 'Vehiculo', 'Cliente', 'Tasacion', 'Usuario'];
-
-  const filtrada = auditoriaData.filter(a => {
+function _audFiltrada() {
+  return auditoriaData.filter(a => {
     if (filtroAudTipo !== "Todos" && a.tipo !== filtroAudTipo) return false;
     if (filtroAudUsuario !== "Todos" && a.usuario !== filtroAudUsuario) return false;
     if (searchAud) {
@@ -3133,37 +3160,23 @@ function renderAuditoria() {
     }
     return true;
   });
+}
 
-  let html = `<div class="max-w-6xl mx-auto">
-    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-      <div>
-        <h1 class="page-heading">📜 Auditoría de Cambios</h1>
-        <p class="text-slate-500 text-sm mt-1">Registro de quién hizo qué y cuándo. Últimos ${auditoriaData.length} movimientos.</p>
-      </div>
-      <button onclick="cargarAuditoria()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);">🔄 Recargar</button>
-    </div>
-
-    <div class="flex gap-2 mb-4 flex-wrap items-center">
-      <input id="searchAudInput" placeholder="🔍 Buscar placa, cliente, cambio..." value="${escAttr(searchAud)}"
-        oninput="searchAud=this.value;render();setTimeout(()=>document.getElementById('searchAudInput')?.focus(),0)" class="flex-1 min-w-[220px]">
-      <select onchange="filtroAudTipo=this.value;render()" class="max-w-[160px]">
-        ${tipos.map(t=>`<option ${filtroAudTipo===t?'selected':''} value="${escAttr(t)}">${t==='Todos'?'Todos los tipos':(TIPO_ICON[t]||'')+' '+t}</option>`).join('')}
-      </select>
-      <select onchange="filtroAudUsuario=this.value;render()" class="max-w-[160px]">
-        ${usuarios.map(u=>`<option ${filtroAudUsuario===u?'selected':''} value="${escAttr(u)}">${u==='Todos'?'Todos los usuarios':'👤 '+u}</option>`).join('')}
-      </select>
-    </div>`;
+function _audResultsHTML(filtrada) {
+  const TIPO_ICON = { Vehiculo:'🚗', Cliente:'🛒', Tasacion:'💵', Usuario:'👤' };
+  const ACCION_COLOR = { Crear:'#22c55e', Editar:'#38bdf8', Eliminar:'#ef4444', Comprar:'#a855f7' };
 
   if (auditoriaCargando) {
-    html += `<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-slate-500 text-sm">Cargando historial...</div></div>`;
-  } else if (filtrada.length === 0) {
-    html += `<div class="card-flat py-12 px-6 text-center">
+    return `<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-slate-500 text-sm">Cargando historial...</div></div>`;
+  }
+  if (filtrada.length === 0) {
+    return `<div class="card-flat py-12 px-6 text-center">
       <div class="text-5xl mb-3 opacity-50">📭</div>
       <div class="text-slate-300 font-semibold mb-1">Sin registros de auditoría</div>
       <div class="text-slate-500 text-sm">${auditoriaData.length===0?'Los cambios que hagas a partir de ahora quedarán registrados aquí.':'Prueba con otro filtro.'}</div>
     </div>`;
-  } else {
-    html += `<div class="card-flat overflow-hidden">
+  }
+  return `<div class="card-flat overflow-hidden">
       <div class="overflow-x-auto">
         <table>
           <thead><tr>${["Fecha","Hora","Usuario","Tipo","Acción","Detalle","ID"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
@@ -3182,10 +3195,42 @@ function renderAuditoria() {
       </div>
     </div>
     <div class="text-slate-600 text-xs mt-3 text-center">Mostrando ${filtrada.length} de ${auditoriaData.length} registros</div>`;
-  }
+}
 
-  html += `</div>`;
-  return html;
+// Actualiza SOLO los resultados, sin recrear el input (evita letras al revés en Android).
+function filtrarAudLive() {
+  const cont = document.getElementById('audResults');
+  if (cont) cont.innerHTML = _audResultsHTML(_audFiltrada());
+}
+
+function renderAuditoria() {
+  const TIPO_ICON = { Vehiculo:'🚗', Cliente:'🛒', Tasacion:'💵', Usuario:'👤' };
+
+  // Opciones de filtro derivadas de la data
+  const usuarios = ['Todos', ...Array.from(new Set(auditoriaData.map(a=>a.usuario).filter(Boolean)))];
+  const tipos = ['Todos', 'Vehiculo', 'Cliente', 'Tasacion', 'Usuario'];
+
+  return `<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+      <div>
+        <h1 class="page-heading">📜 Auditoría de Cambios</h1>
+        <p class="text-slate-500 text-sm mt-1">Registro de quién hizo qué y cuándo. Últimos ${auditoriaData.length} movimientos.</p>
+      </div>
+      <button onclick="cargarAuditoria()" class="text-slate-400 hover:text-sky-400 text-xs font-semibold px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);">🔄 Recargar</button>
+    </div>
+
+    <div class="flex gap-2 mb-4 flex-wrap items-center">
+      <input id="searchAudInput" placeholder="🔍 Buscar placa, cliente, cambio..." value="${escAttr(searchAud)}"
+        oninput="searchAud=this.value;filtrarAudLive()" class="flex-1 min-w-[220px]">
+      <select onchange="filtroAudTipo=this.value;filtrarAudLive()" class="max-w-[160px]">
+        ${tipos.map(t=>`<option ${filtroAudTipo===t?'selected':''} value="${escAttr(t)}">${t==='Todos'?'Todos los tipos':(TIPO_ICON[t]||'')+' '+t}</option>`).join('')}
+      </select>
+      <select onchange="filtroAudUsuario=this.value;filtrarAudLive()" class="max-w-[160px]">
+        ${usuarios.map(u=>`<option ${filtroAudUsuario===u?'selected':''} value="${escAttr(u)}">${u==='Todos'?'Todos los usuarios':'👤 '+u}</option>`).join('')}
+      </select>
+    </div>
+    <div id="audResults">${_audResultsHTML(_audFiltrada())}</div>
+  </div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
