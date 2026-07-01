@@ -721,7 +721,7 @@
      Detecta entorno y usa fetch() si no estamos en Apps Script.
      ============================================================ -->
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyU_6ERr8X3LlO4Vj7kbNXHWt4fRWmvolJoRp10il2alvFjvzqlwTk8HBLSugHzh9Lw/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxkONxnOcEGmIbXUdJwGvTEeJzopHBpS_-CcPUKZl2QMko9ZnoxOIX_dQKcZUFIfBP2/exec';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -2107,7 +2107,7 @@ function renderDashboard(alertasSOAT, alertasRev, alertasCli) {
     <h3 class="text-sm text-slate-400 font-bold mb-3">🚗 Stock Actual (${enStock.length})</h3>
     <div class="overflow-x-auto">
       <table>
-        <thead><tr>${["Vehículo","Placa","KM","Costo","Pub.","Días","Util. Proy.","Estado","Matches"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <thead><tr>${["Vehículo","Placa","KM","Costo","Pub.","Días","Util. Proy.","Estado","Compatibles"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
         <tbody>
           ${enStock.map(v=>{
             const d = calcDiasStock(v);
@@ -2373,7 +2373,7 @@ function renderMatches() {
   });
 
   html += `</div><div>
-      <h3 class="text-sm text-slate-400 font-bold mb-2">${lastMatchVeh?`Matches: ${lastMatchVeh.marca} ${lastMatchVeh.modelo} (${lastMatches.length})`:"Selecciona un vehículo"}</h3>`;
+      <h3 class="text-sm text-slate-400 font-bold mb-2">${lastMatchVeh?`Compradores compatibles: ${lastMatchVeh.marca} ${lastMatchVeh.modelo} (${lastMatches.length})`:"Selecciona un vehículo"}</h3>`;
 
   if(lastMatchVeh) {
     if(lastMatches.length === 0) {
