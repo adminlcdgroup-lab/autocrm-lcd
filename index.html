@@ -1870,7 +1870,7 @@ function parseFecha(v) {
 
 // Convierte el objeto interno al formato del backend (claves del Excel)
 function vehToBackend(v) {
-  return {
+  const out = {
     id: v.id,
     Marca: v.marca,
     Modelo: v.modelo,
@@ -1908,6 +1908,16 @@ function vehToBackend(v) {
     Pantalla: v.pantalla || "",
     Descripcion_Publica: v.descripcionPublica || ""
   };
+  // Si el usuario NO ve finanzas (tasador), sus datos vienen sin costos y la
+  // normalización los convirtió en 0. NO se envían: al omitirlos, el backend
+  // PRESERVA los costos/utilidad reales del Sheet (nunca los pisa con 0).
+  if (typeof verFinanzas === "function" && !verFinanzas()) {
+    ["Comision", "Costo_Inspeccion", "Gastos_Notaria", "Gasto_Firma",
+     "Costo_Compra", "Retoques", "Gasto_Combustible", "Gasto_Lavado",
+     "Gastos_Cochera", "Otros_Gastos", "Descripcion_de_Gastos"
+    ].forEach(k => delete out[k]);
+  }
+  return out;
 }
 
 function recargarApp(result) {
@@ -2261,13 +2271,13 @@ function _vehResultsHTML(filtered) {
         </div>
       </div>
       <div class="flex gap-4 mt-3 flex-wrap text-sm">
-        <span class="text-slate-500">Costo: <b class="text-slate-200">${money(ct)}</b></span>
-        ${parseFloat(v.precioPublicacion)>0?`<span class="text-slate-500">Pub: <b class="text-sky-400">${money(v.precioPublicacion)}</b></span>`:""}
+        ${verFinanzas()?`<span class="text-slate-500">Costo: <b class="text-slate-200">${money(ct)}</b></span>`:""}
+        ${parseFloat(v.precioPublicacion)>0?`<span class="text-slate-500">${verFinanzas()?"Pub":"Precio sugerido"}: <b class="text-sky-400">${money(v.precioPublicacion)}</b></span>`:""}
         ${parseFloat(v.precioVenta)>0?`<span class="text-slate-500">Venta: <b class="text-green-400">${money(v.precioVenta)}</b></span>`:""}
-        ${u?`<span class="text-slate-500">Util: <b style="color:${u.val>=0?"#4ade80":"#ef4444"}">${u.val>=0?"+":""}${money(u.val)}${u.tipo==="proyectada"?" (proy.)":""}</b></span>`:""}
+        ${u&&verFinanzas()?`<span class="text-slate-500">Util: <b style="color:${u.val>=0?"#4ade80":"#ef4444"}">${u.val>=0?"+":""}${money(u.val)}${u.tipo==="proyectada"?" (proy.)":""}</b></span>`:""}
         ${parseInt(v.kilometraje)>0?`<span class="text-slate-500">🛣 ${parseInt(v.kilometraje).toLocaleString()} km</span>`:""}
       </div>
-      ${alerta?`<div class="mt-2 text-red-500 text-xs">⚠️ Precio publicación bajo costo</div>`:""}
+      ${alerta&&verFinanzas()?`<div class="mt-2 text-red-500 text-xs">⚠️ Precio publicación bajo costo</div>`:""}
       ${v.comentarios?`<div class="mt-2 text-slate-500 text-xs italic">💬 ${escHtml(v.comentarios)}</div>`:""}
     </div>`;
   });
@@ -4662,15 +4672,20 @@ function openDetalle(id) {
   let body = `<div class="grid grid-cols-2 gap-2 mb-4 text-sm">
     ${datos.map(([k,vl])=>`<div class="bg-slate-800 rounded p-2"><div class="text-slate-500 text-xs">${k}</div><div class="font-semibold mt-0.5">${vl?escHtml(vl):"—"}</div></div>`).join("")}
   </div>
-  <div class="bg-slate-800 rounded-lg p-3 mb-3 text-sm">
+  ${verFinanzas()?`<div class="bg-slate-800 rounded-lg p-3 mb-3 text-sm">
     <div class="font-bold text-sky-400 mb-2">💰 Desglose Financiero</div>
     ${gastos.map(([k,x])=>`<div class="flex justify-between py-1 border-b border-slate-700"><span class="text-slate-400">${k}</span><span>${money(x)}</span></div>`).join("")}
     <div class="flex justify-between py-2 font-bold border-t-2 border-slate-700 mt-1"><span>Costo Total</span><span>${money(ct)}</span></div>
     <div class="flex justify-between py-1 text-sky-400"><span>Precio Publicación</span><span>${money(v.precioPublicacion)}</span></div>
     ${parseFloat(v.precioVenta)>0?`<div class="flex justify-between py-1 text-green-400"><span>Precio Venta</span><span>${money(v.precioVenta)}</span></div>`:""}
     ${u?`<div class="flex justify-between py-2 font-bold border-t border-slate-700 mt-1" style="color:${u.val>=0?"#4ade80":"#ef4444"}"><span>Utilidad ${u.tipo==="proyectada"?"Proy.":"Real"}</span><span>${u.val>=0?"+":""}${money(u.val)}</span></div>`:""}
-  </div>
-  ${v.descripcionGastos?`<div class="bg-slate-800 rounded p-3 mb-2 text-sm"><div class="text-slate-500 text-xs mb-1">DESCRIPCIÓN DE GASTOS</div><div>${escHtml(v.descripcionGastos)}</div></div>`:""}
+  </div>`
+  :`<div class="bg-slate-800 rounded-lg p-3 mb-3 text-sm">
+    <div class="font-bold text-sky-400 mb-2">💵 Precios</div>
+    <div class="flex justify-between py-1 text-sky-400"><span>Precio sugerido de venta</span><span class="font-bold">${money(v.precioPublicacion)}</span></div>
+    ${parseFloat(v.precioVenta)>0?`<div class="flex justify-between py-1 text-green-400"><span>Precio Venta</span><span class="font-bold">${money(v.precioVenta)}</span></div>`:""}
+  </div>`}
+  ${v.descripcionGastos&&verFinanzas()?`<div class="bg-slate-800 rounded p-3 mb-2 text-sm"><div class="text-slate-500 text-xs mb-1">DESCRIPCIÓN DE GASTOS</div><div>${escHtml(v.descripcionGastos)}</div></div>`:""}
   ${v.comentarios?`<div class="bg-slate-800 rounded p-3 text-sm"><div class="text-slate-500 text-xs mb-1">COMENTARIOS</div><div>${escHtml(v.comentarios)}</div></div>`:""}
   ${ms.length>0?`<div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mt-3">
     <div class="text-sky-400 text-sm font-bold mb-2">🎯 ${ms.length} cliente${ms.length>1?"s":""} compatible${ms.length>1?"s":""}</div>
@@ -4745,14 +4760,14 @@ function openVehModal(id) {
     <div class="grid grid-cols-3 gap-3 mb-4">
       ${inp("soat","SOAT vence","date")}${inp("revTecnica","Rev. Técnica vence","date")}${inp("fechaCompra","Fecha Compra","date")}
     </div>
-    <div class="section-title">Costos y Gastos ($)</div>
+    ${verFinanzas()?`<div class="section-title">Costos y Gastos ($)</div>
     <div class="grid grid-cols-3 gap-3 mb-4">
       ${inp("costoCompra","Compra *","number","min=1")}${inp("comision","Comisión","number","min=0")}${inp("costoInspeccion","Inspección","number","min=0")}
       ${inp("gastosNotaria","Notaría","number","min=0")}${inp("gastoFirma","Firma","number","min=0")}${inp("retoques","Retoques","number","min=0")}
       ${inp("gastoCombustible","Combustible","number","min=0")}${inp("gastoLavado","Lavado","number","min=0")}${inp("gastosCochera","Cochera","number","min=0")}
       ${inp("otrosGastos","Otros","number","min=0")}
       ${txt("descripcionGastos","Descripción de gastos")}
-    </div>
+    </div>`:""}
     <div class="section-title">Precios y Publicación ($)</div>
     <div class="grid grid-cols-2 gap-3 mb-4">
       ${inp("precioPublicacion","Precio Publicación","number","min=0")}${inp("precioVenta","Precio Venta","number","min=0 oninput=onVentaInput()")}
@@ -5264,21 +5279,60 @@ function enviarPropuestaUI(refId) {
 }
 
 // ───── VISTA TASADOR / ADMIN ─────
+// Sub-vistas: Activos (en proceso) e Historial (finalizados → precios referenciales)
+let redVista = "activos";
+let redBusqueda = "";
+const RED_FINALIZADOS = ["Tasación Final", "Comprado", "Rechazado"];
+
+function _redListaFiltrada() {
+  const esHist = redVista === "historial";
+  let lista = redReferidos.filter(r => RED_FINALIZADOS.includes(r.estado) === esHist);
+  const q = redBusqueda.trim().toLowerCase();
+  if (q) lista = lista.filter(r =>
+    (r.marca + " " + r.modelo + " " + (r.placa || "") + " " + (r.concesionario || "") + " " + (r.asesorNombre || "")).toLowerCase().includes(q));
+  return lista;
+}
+
+// Actualiza SOLO la tabla (no recrea el input de búsqueda — evita letras al revés)
+function _redFiltrarLive() {
+  const cont = document.getElementById("redTabla");
+  if (cont) cont.innerHTML = _redTablaHTML(_redListaFiltrada());
+}
+
 function pintarRedTasador() {
   const nuevos = redReferidos.filter(r => r.estado === "Nuevo").length;
   const enConsulta = redReferidos.filter(r => r.estado === "En Consulta").length;
   const aprobados = redReferidos.filter(r => r.estado === "Propuesta Aprobada").length;
+  const nHist = redReferidos.filter(r => RED_FINALIZADOS.includes(r.estado)).length;
+  const nAct = redReferidos.length - nHist;
   const kpis = `
-    <div class="grid grid-cols-3 gap-3 mb-5 max-w-xl">
+    <div class="grid grid-cols-3 gap-3 mb-4 max-w-xl">
       ${[["🆕 Nuevos", nuevos, "#38bdf8"], ["📢 En consulta", enConsulta, "#fbbf24"], ["✅ Aprobados", aprobados, "#34d399"]]
         .map(([l, v, c]) => `<div class="rounded-xl p-3 text-center" style="background:var(--c-surface);border:1px solid var(--c-border);">
           <div class="text-2xl font-black" style="color:${c}">${v}</div><div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">${l}</div></div>`).join("")}
     </div>`;
-  if (!redReferidos.length) {
-    return kpis + `<div class="text-center py-14"><div class="text-5xl mb-3">📭</div>
-      <p class="text-slate-400 text-sm">Sin referidos todavía. Cuando un asesor registre un vehículo te llegará una notificación 🔔.</p></div>`;
+  const chip = (v, label) => `<button onclick="redVista='${v}';pintarRed()"
+      class="text-xs font-bold px-3 py-1.5 rounded-lg ${redVista === v ? "text-white" : "text-slate-400 hover:text-slate-200"}"
+      style="${redVista === v ? "background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.5)" : "border:1px solid var(--c-border)"}">${label}</button>`;
+  const barra = `
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      ${chip("activos", "🟢 Activos (" + nAct + ")")}
+      ${chip("historial", "📚 Historial (" + nHist + ")")}
+      <input id="redBuscarInput" placeholder="🔍 Marca, modelo, placa, concesionario…" value="${escAttr(redBusqueda)}"
+             oninput="redBusqueda=this.value;_redFiltrarLive()" class="flex-1 min-w-[200px] text-sm">
+    </div>`;
+  return kpis + barra + `<div id="redTabla">${_redTablaHTML(_redListaFiltrada())}</div>`;
+}
+
+function _redTablaHTML(lista) {
+  const esHist = redVista === "historial";
+  if (!lista.length) {
+    return `<div class="text-center py-14"><div class="text-5xl mb-3">📭</div>
+      <p class="text-slate-400 text-sm">${redBusqueda ? "Sin resultados para esa búsqueda." :
+        esHist ? "Aún no hay referidos finalizados. Aquí quedará el historial con los precios referenciales." :
+        "Sin referidos activos. Cuando un asesor registre un vehículo te llegará una notificación 🔔."}</p></div>`;
   }
-  const filas = redReferidos.map(r => `
+  const filas = lista.map(r => `
     <tr class="border-b border-slate-800/60 hover:bg-white/[.015] cursor-pointer" onclick="abrirDetalleReferido('${escAttr(r.id)}')">
       <td class="py-2.5 px-3 text-slate-500 text-xs whitespace-nowrap">${escAttr(r.fecha)}</td>
       <td class="py-2.5 pr-3 text-xs">${escAttr(r.concesionario || "—")}<div class="text-[10px] text-slate-500">${escAttr(r.asesorNombre || "")}</div></td>
@@ -5286,18 +5340,21 @@ function pintarRedTasador() {
         <div class="text-[11px] text-slate-500">${escAttr(r.placa || "s/placa")} · ${r.km ? Number(r.km).toLocaleString("en-US") + " km" : "km s/d"}</div></td>
       <td class="py-2.5 pr-3 text-xs text-slate-300">${escAttr(r.clienteNombre || "")}</td>
       <td class="py-2.5 pr-3">${redChip(r.estado)}</td>
-      <td class="py-2.5 pr-3 text-center text-xs">${r.numPropuestas ? `<b class="text-slate-200">${r.numPropuestas}</b> · max <b class="text-emerald-400">${money(r.mejorMonto)}</b>` : '<span class="text-slate-600">—</span>'}</td>
+      <td class="py-2.5 pr-3 text-center text-xs">${esHist
+        ? `${r.precioAprobado ? `Aprob: <b class="text-emerald-400">${money(r.precioAprobado)}</b>${r.revendedorAprobadoNombre ? `<div class="text-[10px] text-slate-500">${escAttr(r.revendedorAprobadoNombre)}</div>` : ""}` : '<span class="text-slate-600">—</span>'}
+           ${r.precioFinal ? `<div>Final: <b class="text-sky-400">${money(r.precioFinal)}</b></div>` : ""}`
+        : (r.numPropuestas ? `<b class="text-slate-200">${r.numPropuestas}</b> · max <b class="text-emerald-400">${money(r.mejorMonto)}</b>` : '<span class="text-slate-600">—</span>')}</td>
       <td class="py-2.5 pr-3 text-right" onclick="event.stopPropagation()">
         ${r.estado === "Nuevo" ? `<button onclick="derivarUI('${escAttr(r.id)}')" class="bg-amber-600/90 hover:bg-amber-500 text-white rounded px-2.5 py-1 text-[11px] font-bold">📢 Derivar</button>` : ""}
-        <button onclick="abrirDetalleReferido('${escAttr(r.id)}')" class="border border-slate-700 text-slate-300 hover:text-white rounded px-2.5 py-1 text-[11px] font-semibold">Gestionar</button>
+        <button onclick="abrirDetalleReferido('${escAttr(r.id)}')" class="border border-slate-700 text-slate-300 hover:text-white rounded px-2.5 py-1 text-[11px] font-semibold">${esHist ? "Ver" : "Gestionar"}</button>
       </td>
     </tr>`).join("");
-  return kpis + `
+  return `
     <div class="rounded-xl overflow-x-auto" style="background:var(--c-surface);border:1px solid var(--c-border);">
       <table class="min-w-[860px]">
         <thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
           <th class="py-2.5 px-3">Fecha</th><th class="py-2.5 pr-3">Origen</th><th class="py-2.5 pr-3">Vehículo</th>
-          <th class="py-2.5 pr-3">Cliente</th><th class="py-2.5 pr-3">Estado</th><th class="py-2.5 pr-3 text-center">Propuestas</th><th class="py-2.5 pr-3 text-right">Acciones</th>
+          <th class="py-2.5 pr-3">Cliente</th><th class="py-2.5 pr-3">Estado</th><th class="py-2.5 pr-3 text-center">${esHist ? "Precios referenciales" : "Propuestas"}</th><th class="py-2.5 pr-3 text-right">Acciones</th>
         </tr></thead>
         <tbody>${filas}</tbody>
       </table>
@@ -5350,6 +5407,21 @@ function abrirDetalleReferido(refId) {
       ${wa ? `<a href="${wa}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-1.5 text-xs font-bold">📱 WhatsApp</a>` : ""}
     </div>
 
+    ${(() => {
+      // Precios referenciales: referidos anteriores del MISMO marca+modelo
+      const refs = redReferidos.filter(x => x.id !== r.id &&
+        x.marca.toLowerCase().trim() === r.marca.toLowerCase().trim() &&
+        x.modelo.toLowerCase().trim() === r.modelo.toLowerCase().trim() &&
+        ((x.precioAprobado || 0) > 0 || (x.precioFinal || 0) > 0 || (x.mejorMonto || 0) > 0)).slice(0, 5);
+      if (!refs.length) return "";
+      return `<div class="rounded-lg p-3 mb-4" style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.25)">
+        <h4 class="text-xs font-bold mb-1.5" style="color:#c084fc">📊 Precios referenciales · ${escAttr(r.marca)} ${escAttr(r.modelo)} anteriores</h4>
+        ${refs.map(x => `<div class="flex justify-between gap-2 text-[11px] py-1 border-b border-slate-800/40 text-slate-300">
+          <span class="text-slate-500">${escAttr(x.fecha)} · ${escAttr(x.anio || "")}${x.km ? " · " + Number(x.km).toLocaleString("en-US") + " km" : ""}</span>
+          <span class="text-right">${x.precioAprobado ? `Aprob. <b class="text-emerald-400">${money(x.precioAprobado)}</b>${x.revendedorAprobadoNombre ? ` <span class="text-slate-500">(${escAttr(x.revendedorAprobadoNombre)})</span>` : ""}` : (x.mejorMonto ? `Mejor prop. <b>${money(x.mejorMonto)}</b>` : "")}${x.precioFinal ? ` · Final <b class="text-sky-400">${money(x.precioFinal)}</b>` : ""}</span>
+        </div>`).join("")}
+      </div>`;
+    })()}
     <h4 class="text-xs font-bold text-slate-300 mb-2">💰 Propuestas de revendedores</h4>
     <div id="detPropuestas" class="mb-4 text-xs text-slate-500"><div class="spinner mx-auto my-3" style="width:22px;height:22px;"></div></div>
 
@@ -5795,10 +5867,14 @@ function intentarLogin() {
 const TABS_POR_ROL = {
   admin      : null,
   tecnico    : ["inspeccion"],
-  tasador    : ["red", "tasadora", "cotizaciones", "inspeccion"],
+  // El tasador también publica: ve el Stock (unidades disponibles, solo precio
+  // sugerido — sin costos/utilidad) y genera flyers del carro comprado.
+  tasador    : ["red", "inventario", "tasadora", "cotizaciones", "inspeccion", "flyer"],
   asesor     : ["red"],
   revendedor : ["red"]
 };
+// Solo el admin ve la información financiera (costos, gastos, utilidad)
+function verFinanzas() { return usuarioActual?.rol === "admin"; }
 const ICONO_ROL = { admin: "👑", tecnico: "🔧", tasador: "📊", asesor: "🤝", revendedor: "💰" };
 
 function tabsPermitidos() {
