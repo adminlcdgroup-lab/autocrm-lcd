@@ -735,7 +735,7 @@
      Detecta entorno y usa fetch() si no estamos en Apps Script.
      ============================================================ -->
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxkONxnOcEGmIbXUdJwGvTEeJzopHBpS_-CcPUKZl2QMko9ZnoxOIX_dQKcZUFIfBP2/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzJLbjVB018pMdsKThYz68ic_yWqU-b6bBHjDxUszzotd7HAR5mrErtbETlLfh9BbD7/exec';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -4963,13 +4963,63 @@ function waLink(tel) {
   if (d.length === 9) d = "51" + d;   // celular peruano sin código de país
   return d ? `https://wa.me/${d}` : "";
 }
-// Convierte el texto de links de fotos en botones clickeables (solo URLs http/https)
+// Las 6 fotos obligatorias del referido: [clave, etiqueta backend, label UI]
+const FOTOS_REF = [
+  ["tablero",   "Tablero (KM)",         "📟 Tablero (KM visible)"],
+  ["tarjeta",   "Tarjeta de propiedad", "📄 Tarjeta de propiedad"],
+  ["frontal",   "Frontal",              "🚗 Frontal"],
+  ["posterior", "Posterior",            "🚙 Posterior"],
+  ["lat_izq",   "Lateral izquierdo",    "⬅️ Lado izquierdo"],
+  ["lat_der",   "Lateral derecho",      "➡️ Lado derecho"]
+];
+let __fotosRef = {};   // clave → File seleccionado
+
+function fotoSeleccionada(input, clave) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  __fotosRef[clave] = file;
+  const prev = document.getElementById("prev-" + clave);
+  const ico  = document.getElementById("ico-" + clave);
+  const slot = document.getElementById("slot-" + clave);
+  if (prev) { prev.src = URL.createObjectURL(file); prev.classList.remove("hidden"); }
+  if (ico)  ico.classList.add("hidden");
+  if (slot) slot.style.border = "1px solid rgba(16,185,129,.6)";
+}
+
+// Reduce la foto (max 1280px, JPEG 72%) y devuelve solo el base64
+function comprimirFoto(file, maxDim = 1280, calidad = 0.72) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const esc = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * esc)), h = Math.max(1, Math.round(img.height * esc));
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(cv.toDataURL("image/jpeg", calidad).split(",")[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("No se pudo leer la foto")); };
+    img.src = url;
+  });
+}
+
+// Fotos del referido → miniaturas etiquetadas ("Etiqueta|URL" por línea).
+// Acepta también URLs sueltas (formato antiguo) como botones.
 function fotosLinksHTML(str) {
-  const urls = String(str || "").split(/[\n,\s]+/).filter(u => /^https?:\/\//i.test(u));
-  if (!urls.length) return "";
-  return `<div class="flex flex-wrap gap-1.5 mt-2">` + urls.map((u, i) =>
-    `<a href="${escAttr(u)}" target="_blank" rel="noopener" class="text-[10px] font-bold px-2 py-1 rounded-md text-sky-300 hover:text-sky-200" style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3)">📷 Foto ${i + 1}</a>`
-  ).join("") + `</div>`;
+  const items = [];
+  String(str || "").split(/\n+/).map(s => s.trim()).filter(Boolean).forEach(l => {
+    const p = l.split("|");
+    if (p.length === 2 && /^https?:\/\//i.test(p[1])) items.push({ et: p[0], url: p[1] });
+    else l.split(/[\s,]+/).forEach(u => { if (/^https?:\/\//i.test(u)) items.push({ et: "Foto " + (items.length + 1), url: u }); });
+  });
+  if (!items.length) return "";
+  return `<div class="flex flex-wrap gap-2 mt-2">` + items.map(it => `
+    <a href="${escAttr(it.url)}" target="_blank" rel="noopener" class="block text-center" title="${escAttr(it.et)}">
+      <img src="${escAttr(it.url)}" loading="lazy" class="w-16 h-16 object-cover rounded-lg" style="border:1px solid #334155"
+           onerror="this.outerHTML='<span class=&quot;text-lg&quot;>📷</span>'">
+      <div class="text-[9px] text-slate-500 mt-0.5 max-w-[64px] leading-tight mx-auto">${escAttr(it.et)}</div>
+    </a>`).join("") + `</div>`;
 }
 // Línea de ficha técnica compacta (para cards y detalle)
 function fichaTecnicaHTML(r) {
@@ -4982,7 +5032,9 @@ function fichaTecnicaHTML(r) {
   const linea = items.length ? `<div class="text-[11px] text-slate-400 mt-1">${items.join(" · ")}</div>` : "";
   const sini = r.siniestros && !/^(ninguno|no|n\/a|-)?$/i.test(r.siniestros.trim())
     ? `<div class="text-[11px] mt-1" style="color:#fbbf24">⚠️ Siniestros: ${escAttr(r.siniestros)}</div>` : "";
-  return linea + sini;
+  const deudas = r.deudasCargas && !/^(ninguna|ninguno|no|n\/a|-)?$/i.test(r.deudasCargas.trim())
+    ? `<div class="text-[11px] mt-1" style="color:#f87171">⚖️ Deudas/cargas: ${escAttr(r.deudasCargas)}</div>` : "";
+  return linea + sini + deudas;
 }
 
 function renderRed() {
@@ -5070,6 +5122,7 @@ function pintarRedAsesor() {
 }
 
 function abrirFormReferido() {
+  __fotosRef = {};   // limpiar selección de fotos previa
   const marcasOpts = MARCAS.map(m => `<option>${m}</option>`).join("");
   modal("🚘 Registrar vehículo de cliente (parte de pago)", `
     <form onsubmit="event.preventDefault();enviarReferido(this)">
@@ -5091,7 +5144,19 @@ function abrirFormReferido() {
         <div><label>Color</label><input name="Color" placeholder="Blanco"></div>
         <div><label>Choques / siniestros</label><input name="Siniestros" placeholder="Ninguno / describe"></div>
         <div class="col-span-2"><label>Deudas, multas o cargas legales</label><input name="Deudas_Cargas" placeholder="Ninguna / prenda bancaria, multas…"></div>
-        <div class="col-span-2"><label>Fotos (links de Drive/WhatsApp, uno por línea)</label><textarea name="Fotos_Links" rows="2" placeholder="https://…"></textarea></div>
+        <div class="col-span-2">
+          <label>Fotos del vehículo * (las 6 son obligatorias)</label>
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            ${FOTOS_REF.map(f => `
+            <label class="flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-colors" style="border:1px dashed #334155;background:rgba(255,255,255,.02)" id="slot-${f[0]}">
+              <img id="prev-${f[0]}" class="hidden w-9 h-9 object-cover rounded shrink-0" alt="">
+              <span id="ico-${f[0]}" class="shrink-0">📷</span>
+              <span class="text-[11px] text-slate-400 leading-tight">${f[2]}</span>
+              <input type="file" accept="image/*" capture="environment" class="hidden" onchange="fotoSeleccionada(this,'${f[0]}')">
+            </label>`).join("")}
+          </div>
+          <p class="text-[10px] text-slate-600 mt-1.5">Estas fotos las verán el tasador y los revendedores para dar su mejor precio.</p>
+        </div>
         <div class="col-span-2"><label>Observaciones</label><textarea name="Observaciones" rows="2" placeholder="Estado general, detalles…"></textarea></div>
       </div>
       <div class="flex gap-2 justify-end">
@@ -5101,17 +5166,40 @@ function abrirFormReferido() {
     </form>`);
 }
 
-function enviarReferido(form) {
+async function enviarReferido(form) {
   const data = {};
   new FormData(form).forEach((v, k) => data[k] = v);
+
+  // Las 6 fotos son obligatorias para el asesor (el backend también lo valida)
+  const faltan = FOTOS_REF.filter(f => !__fotosRef[f[0]]);
+  if (usuarioActual?.rol === "asesor" && faltan.length) {
+    toast("⚠️ Faltan fotos: " + faltan.map(f => f[1]).join(", "), "error");
+    return;
+  }
+
   const btn = form.querySelector('button[type="submit"]');
-  if (btn) { btn.disabled = true; btn.textContent = "Enviando…"; }
-  gsCall("registrarReferido", data)
-    .then(r => {
-      if (r && r.exito) { toast(r.mensaje || "✅ Registrado"); closeModal(); initRed(); }
-      else { if (btn) { btn.disabled = false; btn.textContent = "📤 Enviar al tasador"; } toast("⚠️ " + ((r && r.error) || "No se pudo registrar"), "error"); }
-    })
-    .catch(e => { if (btn) { btn.disabled = false; btn.textContent = "📤 Enviar al tasador"; } toast("⚠️ " + (e.message || e), "error"); });
+  const restaurar = () => { if (btn) { btn.disabled = false; btn.textContent = "📤 Enviar al tasador"; } };
+  if (btn) btn.disabled = true;
+
+  try {
+    // Comprimir y adjuntar las fotos seleccionadas
+    const seleccionadas = FOTOS_REF.filter(f => __fotosRef[f[0]]);
+    if (seleccionadas.length) {
+      data.Fotos = [];
+      for (let i = 0; i < seleccionadas.length; i++) {
+        if (btn) btn.textContent = `📷 Procesando foto ${i + 1}/${seleccionadas.length}…`;
+        const b64 = await comprimirFoto(__fotosRef[seleccionadas[i][0]]);
+        data.Fotos.push({ etiqueta: seleccionadas[i][1], base64: b64, mime: "image/jpeg" });
+      }
+    }
+    if (btn) btn.textContent = "📤 Enviando…";
+    const r = await gsCall("registrarReferido", data);
+    if (r && r.exito) { toast(r.mensaje || "✅ Registrado"); closeModal(); initRed(); }
+    else { restaurar(); toast("⚠️ " + ((r && r.error) || "No se pudo registrar"), "error"); }
+  } catch (e) {
+    restaurar();
+    toast("⚠️ " + (e.message || e), "error");
+  }
 }
 
 // ───── VISTA REVENDEDOR (pujas ciegas) ─────
@@ -5146,7 +5234,7 @@ function pintarRedRevendedor() {
           <div>
             <div class="font-bold text-slate-100">${escAttr(redVehTitulo(r))}</div>
             <div class="text-[11px] text-slate-500 mt-0.5">
-              ${r.km ? Number(r.km).toLocaleString("en-US") + " km" : "km s/d"} · ${escAttr(r.transmision || "—")} · ${escAttr(r.combustible || "—")}${r.color ? " · " + escAttr(r.color) : ""}
+              ${r.placa ? "🔖 " + escAttr(r.placa) + " · " : ""}${r.km ? Number(r.km).toLocaleString("en-US") + " km" : "km s/d"} · ${escAttr(r.transmision || "—")} · ${escAttr(r.combustible || "—")}${r.color ? " · " + escAttr(r.color) : ""}
             </div>
           </div>
           ${redChip(r.estado)}
