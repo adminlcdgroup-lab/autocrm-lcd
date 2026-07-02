@@ -4963,6 +4963,27 @@ function waLink(tel) {
   if (d.length === 9) d = "51" + d;   // celular peruano sin código de país
   return d ? `https://wa.me/${d}` : "";
 }
+// Convierte el texto de links de fotos en botones clickeables (solo URLs http/https)
+function fotosLinksHTML(str) {
+  const urls = String(str || "").split(/[\n,\s]+/).filter(u => /^https?:\/\//i.test(u));
+  if (!urls.length) return "";
+  return `<div class="flex flex-wrap gap-1.5 mt-2">` + urls.map((u, i) =>
+    `<a href="${escAttr(u)}" target="_blank" rel="noopener" class="text-[10px] font-bold px-2 py-1 rounded-md text-sky-300 hover:text-sky-200" style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3)">📷 Foto ${i + 1}</a>`
+  ).join("") + `</div>`;
+}
+// Línea de ficha técnica compacta (para cards y detalle)
+function fichaTecnicaHTML(r) {
+  const items = [
+    r.motor ? "⚙️ " + escAttr(r.motor) : "",
+    r.traccion ? escAttr(r.traccion) : "",
+    r.nroDuenos ? "👤 " + escAttr(r.nroDuenos) + " dueño" + (Number(r.nroDuenos) > 1 ? "s" : "") : "",
+    r.uso ? escAttr(r.uso) : ""
+  ].filter(Boolean);
+  const linea = items.length ? `<div class="text-[11px] text-slate-400 mt-1">${items.join(" · ")}</div>` : "";
+  const sini = r.siniestros && !/^(ninguno|no|n\/a|-)?$/i.test(r.siniestros.trim())
+    ? `<div class="text-[11px] mt-1" style="color:#fbbf24">⚠️ Siniestros: ${escAttr(r.siniestros)}</div>` : "";
+  return linea + sini;
+}
 
 function renderRed() {
   const rol = usuarioActual?.rol || "";
@@ -5063,8 +5084,15 @@ function abrirFormReferido() {
         <div><label>Kilometraje</label><input name="KM" type="number" min="0" placeholder="45000"></div>
         <div><label>Transmisión</label><select name="Transmision"><option>Automática</option><option>Mecánica</option></select></div>
         <div><label>Combustible</label><select name="Combustible"><option>Gasolina</option><option>Diésel</option><option>GLP</option><option>GNV</option><option>Híbrido</option><option>Eléctrico</option></select></div>
-        <div class="col-span-2"><label>Color</label><input name="Color" placeholder="Blanco"></div>
-        <div class="col-span-2"><label>Observaciones</label><textarea name="Observaciones" rows="2" placeholder="Estado general, detalles, choques, deudas…"></textarea></div>
+        <div><label>Motor</label><input name="Motor" placeholder="Ej: 1.5 Turbo"></div>
+        <div><label>Tracción</label><select name="Traccion"><option>4x2</option><option>4x4</option><option>AWD</option></select></div>
+        <div><label>N° de dueños</label><input name="Nro_Duenos" type="number" min="1" max="20" placeholder="1"></div>
+        <div><label>Uso</label><select name="Uso"><option>Particular</option><option>Taxi / App</option><option>Empresa</option></select></div>
+        <div><label>Color</label><input name="Color" placeholder="Blanco"></div>
+        <div><label>Choques / siniestros</label><input name="Siniestros" placeholder="Ninguno / describe"></div>
+        <div class="col-span-2"><label>Deudas, multas o cargas legales</label><input name="Deudas_Cargas" placeholder="Ninguna / prenda bancaria, multas…"></div>
+        <div class="col-span-2"><label>Fotos (links de Drive/WhatsApp, uno por línea)</label><textarea name="Fotos_Links" rows="2" placeholder="https://…"></textarea></div>
+        <div class="col-span-2"><label>Observaciones</label><textarea name="Observaciones" rows="2" placeholder="Estado general, detalles…"></textarea></div>
       </div>
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cancelar</button>
@@ -5123,7 +5151,9 @@ function pintarRedRevendedor() {
           </div>
           ${redChip(r.estado)}
         </div>
+        ${fichaTecnicaHTML(r)}
         ${r.observaciones ? `<p class="text-[11px] text-slate-400 mt-2 line-clamp-2">${escAttr(r.observaciones)}</p>` : ""}
+        ${fotosLinksHTML(r.fotosLinks)}
         ${p ? `<div class="mt-3 flex items-center justify-between text-xs"><span class="text-slate-400">Mi propuesta: <b class="text-slate-100">${money(p.monto)}</b></span>${chipProp}</div>` : ""}
         ${formProp}
         ${bloqueGanada}
@@ -5208,15 +5238,23 @@ function abrirDetalleReferido(refId) {
     <div class="flex items-center gap-2 mb-4">${redChip(r.estado)}
       <span class="text-[11px] text-slate-500">Registrado: ${escAttr(r.fecha)} · ${escAttr(r.concesionario || "")} (${escAttr(r.asesorNombre || "s/asesor")})</span></div>
 
-    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-4">
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-3">
       <div><span class="text-slate-500">Placa:</span> <b>${escAttr(r.placa || "—")}</b></div>
       <div><span class="text-slate-500">KM:</span> <b>${r.km ? Number(r.km).toLocaleString("en-US") : "—"}</b></div>
       <div><span class="text-slate-500">Transmisión:</span> ${escAttr(r.transmision || "—")}</div>
       <div><span class="text-slate-500">Combustible:</span> ${escAttr(r.combustible || "—")}</div>
+      <div><span class="text-slate-500">Motor:</span> ${escAttr(r.motor || "—")}</div>
+      <div><span class="text-slate-500">Tracción:</span> ${escAttr(r.traccion || "—")}</div>
+      <div><span class="text-slate-500">N° dueños:</span> ${escAttr(r.nroDuenos || "—")}</div>
+      <div><span class="text-slate-500">Uso:</span> ${escAttr(r.uso || "—")}</div>
       <div><span class="text-slate-500">Color:</span> ${escAttr(r.color || "—")}</div>
       <div><span class="text-slate-500">Precio aprobado:</span> <b class="text-emerald-400">${r.precioAprobado ? money(r.precioAprobado) + " (" + escAttr(r.revendedorAprobadoNombre) + ")" : "—"}</b></div>
     </div>
-    ${r.observaciones ? `<p class="text-[11px] text-slate-400 mb-4">📝 ${escAttr(r.observaciones)}</p>` : ""}
+    ${r.siniestros ? `<div class="text-[11px] mb-1.5" style="color:#fbbf24">⚠️ <b>Siniestros:</b> ${escAttr(r.siniestros)}</div>` : ""}
+    ${r.deudasCargas ? `<div class="text-[11px] mb-1.5" style="color:#f87171">⚖️ <b>Deudas/cargas:</b> ${escAttr(r.deudasCargas)}</div>` : ""}
+    ${r.observaciones ? `<p class="text-[11px] text-slate-400 mb-1.5">📝 ${escAttr(r.observaciones)}</p>` : ""}
+    ${fotosLinksHTML(r.fotosLinks)}
+    <div class="mb-4"></div>
 
     <div class="rounded-lg p-3 mb-4 flex items-center justify-between" style="background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.2);">
       <div class="text-xs"><span class="text-slate-500">Cliente:</span> <b class="text-slate-100">${escAttr(r.clienteNombre || "—")}</b>
