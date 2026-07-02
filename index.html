@@ -297,9 +297,23 @@
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="cotizaciones" data-role="admin">📋 Flujo de Ventas</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="performance" data-role="admin">💰 Rentabilidad</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inspeccion" data-role="all">🔧 Inspección</button>
+    <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="red" data-role="red">🌐 Red Tasaciones</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="flyer" data-role="admin">🎨 Flyer</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="auditoria" data-role="admin">📜 Auditoría</button>
     <div class="ml-auto flex items-center gap-1.5">
+      <!-- Campana de notificaciones (Fase 2 · Red) -->
+      <div class="relative">
+        <button id="btnNotif" onclick="toggleNotifPanel()" class="hidden relative text-slate-400 hover:text-amber-300 text-base px-2 py-1 rounded-lg transition-colors" style="background:rgba(255,255,255,.025);border:1px solid var(--c-border);" title="Notificaciones">
+          🔔<span id="notifBadge" class="hidden absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center"></span>
+        </button>
+        <div id="notifPanel" class="hidden absolute right-0 top-10 w-80 max-h-96 overflow-y-auto rounded-xl shadow-2xl z-[100]" style="background:#0f172a;border:1px solid var(--c-border);">
+          <div class="flex items-center justify-between px-3 py-2 sticky top-0" style="background:#0f172a;border-bottom:1px solid var(--c-border);">
+            <span class="text-xs font-bold text-slate-300">🔔 Notificaciones</span>
+            <button onclick="marcarTodasLeidas()" class="text-[10px] text-sky-400 hover:underline">Marcar todas leídas</button>
+          </div>
+          <div id="notifLista" class="divide-y divide-slate-800"></div>
+        </div>
+      </div>
       <span id="sessionBadge" class="hidden text-[10px] text-slate-500 font-mono px-2 py-1 rounded-md" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);" title="ID de sesión · minutos activos"></span>
       <span id="userBadge" class="hidden text-xs px-3 py-1 rounded-full font-semibold"></span>
       <div id="alertBadge" class="hidden rounded-full px-2.5 py-1 text-xs font-bold cursor-pointer" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#f87171;"></div>
@@ -751,7 +765,20 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
     // Fase 1 · Auth segura
     'verificarPin':                       { action: 'verificarPin' },
     'cerrarSesionBackend':                { action: 'cerrarSesionBackend' },
-    'cambiarPin':                         { action: 'cambiarPin' }
+    'cambiarPin':                         { action: 'cambiarPin' },
+    // Fase 2 · Red de Tasaciones (todas POST → protegidas por token + rol)
+    'registrarReferido':                  { action: 'registrarReferido' },
+    'listarReferidos':                    { action: 'listarReferidos' },
+    'derivarARevendedores':               { action: 'derivarARevendedores' },
+    'enviarPropuesta':                    { action: 'enviarPropuesta' },
+    'listarPropuestas':                   { action: 'listarPropuestas' },
+    'aprobarPropuesta':                   { action: 'aprobarPropuesta' },
+    'actualizarReferido':                 { action: 'actualizarReferido' },
+    'misNotificaciones':                  { action: 'misNotificaciones' },
+    'marcarNotifLeida':                   { action: 'marcarNotifLeida' },
+    'crearUsuarioRed':                    { action: 'crearUsuarioRed' },
+    'listarUsuariosRed':                  { action: 'listarUsuariosRed' },
+    'desactivarUsuario':                  { action: 'desactivarUsuario' }
   };
 
   function fireRequest(fnName, arg, onSuccess, onFailure) {
@@ -774,6 +801,7 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
         params.set(cfg.argName || 'arg', String(arg));
       }
       params.set('_t', Date.now());  // cache-buster: evita leer datos viejos tras guardar
+      if (_tk) params.set('_tk', _tk);  // token de sesión: los GET de datos ya no son públicos
       req = fetch(APPS_SCRIPT_URL + '?' + params.toString(), { method: 'GET', redirect: 'follow', cache: 'no-store' });
     } else {
       const body = { action: cfg.action, payload: arg };
@@ -1999,14 +2027,19 @@ function render() {
   }
 
   const content = window.content = document.getElementById("content");
-  // Si es técnico, siempre forzar pestaña de inspección
+  // RBAC: si la pestaña actual no está permitida para el rol → forzar la primera permitida
+  if(usuarioActual && !tabPermitido(currentTab)) {
+    const t = tabsPermitidos();
+    currentTab = (Array.isArray(t) && t.length) ? t[0] : "inspeccion";
+  }
+  // Técnico: su única pestaña es inspección (atajo para no evaluar el resto)
   if(usuarioActual && usuarioActual.rol === "tecnico") {
     currentTab = "inspeccion";
     content.innerHTML = renderInspeccion();
     initInspeccion();
     return;
   }
-  if(vehs.length === 0 && clis.length === 0 && !cargando && currentTab !== "tasadora" && currentTab !== "cotizaciones" && currentTab !== "inspeccion" && currentTab !== "flyer" && currentTab !== "performance" && currentTab !== "auditoria") {
+  if(vehs.length === 0 && clis.length === 0 && !cargando && currentTab !== "tasadora" && currentTab !== "cotizaciones" && currentTab !== "inspeccion" && currentTab !== "flyer" && currentTab !== "performance" && currentTab !== "auditoria" && currentTab !== "red") {
     content.innerHTML = renderEmpty();
     return;
   }
@@ -2025,6 +2058,7 @@ function render() {
   else if(currentTab === "auditoria")  content.innerHTML = renderAuditoria();
   else if(currentTab === "inspeccion") { content.innerHTML = renderInspeccion(); initInspeccion(); }
   else if(currentTab === "flyer")      { content.innerHTML = renderFlyer();      initFlyer();      }
+  else if(currentTab === "red")        { content.innerHTML = renderRed();        initRed();        }
 }
 
 function renderEmpty() {
@@ -4893,6 +4927,526 @@ function saveCli(id) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// FASE 2 · RED DE TASACIONES — vistas por rol + notificaciones
+// La SEGURIDAD vive en el backend (filtrado por rol server-side):
+// aquí solo se pinta lo que el servidor decidió entregar.
+// ═══════════════════════════════════════════════════════════════
+
+// Wrapper promesa sobre google.script.run (funciona con el shim y en Apps Script)
+function gsCall(fn, arg) {
+  return new Promise((resolve, reject) => {
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](arg || {});
+  });
+}
+
+let redReferidos = [];
+let redCargandoFlag = false;
+
+const RED_CHIP = {
+  "Nuevo"             : "background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.35)",
+  "En Consulta"       : "background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.35)",
+  "Propuesta Aprobada": "background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.35)",
+  "En Inspección"     : "background:rgba(168,85,247,.12);color:#c084fc;border:1px solid rgba(168,85,247,.35)",
+  "Tasación Final"    : "background:rgba(34,211,238,.12);color:#22d3ee;border:1px solid rgba(34,211,238,.35)",
+  "Comprado"          : "background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.35)",
+  "Rechazado"         : "background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.35)"
+};
+function redChip(estado) {
+  return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap" style="${RED_CHIP[estado]||''}">${escAttr(estado)}</span>`;
+}
+function redVehTitulo(r) {
+  return `${r.marca} ${r.modelo}${r.version ? " " + r.version : ""} ${r.anio || ""}`.trim();
+}
+function waLink(tel) {
+  let d = String(tel || "").replace(/\D/g, "");
+  if (d.length === 9) d = "51" + d;   // celular peruano sin código de país
+  return d ? `https://wa.me/${d}` : "";
+}
+
+function renderRed() {
+  const rol = usuarioActual?.rol || "";
+  const titulos = {
+    asesor    : ["🤝 Mis Referidos", "Registra los vehículos que tus clientes quieren dejar como parte de pago."],
+    revendedor: ["💰 Vehículos en Consulta", "Envía tu propuesta. Solo tú y el tasador la ven — nadie más."],
+    tasador   : ["🌐 Red de Tasaciones", "Referidos de los concesionarios: deriva, compara propuestas y aprueba."],
+    admin     : ["🌐 Red de Tasaciones", "Vista completa de la red: referidos, propuestas y usuarios."]
+  };
+  const [titulo, sub] = titulos[rol] || titulos.admin;
+  return `
+    <div class="flex items-start justify-between flex-wrap gap-3 mb-5">
+      <div>
+        <h1 class="page-heading">${titulo}</h1>
+        <p class="text-slate-500 text-xs mt-1">${sub}</p>
+      </div>
+      <div class="flex gap-2">
+        ${rol === "asesor" ? `<button onclick="abrirFormReferido()" class="bg-sky-600 hover:bg-sky-500 text-white rounded-lg px-4 py-2 text-sm font-semibold">➕ Registrar vehículo</button>` : ""}
+        ${rol === "admin" ? `<button onclick="abrirUsuariosRed()" class="border border-slate-700 text-slate-300 hover:text-white rounded-lg px-4 py-2 text-sm font-semibold">👥 Usuarios</button>` : ""}
+        <button onclick="initRed()" class="border border-slate-700 text-slate-400 hover:text-sky-400 rounded-lg px-3 py-2 text-sm" title="Recargar">🔄</button>
+      </div>
+    </div>
+    <div id="redContent"><div class="text-center py-16 text-slate-500 text-sm"><div class="spinner mx-auto mb-4"></div>Cargando la red…</div></div>`;
+}
+
+function initRed() {
+  if (redCargandoFlag) return;
+  redCargandoFlag = true;
+  gsCall("listarReferidos")
+    .then(r => {
+      redCargandoFlag = false;
+      if (!r || r.exito === false) {
+        document.getElementById("redContent").innerHTML =
+          `<div class="text-center py-14 text-red-400 text-sm">⚠️ ${escAttr((r && r.error) || "Error al cargar")}</div>`;
+        return;
+      }
+      redReferidos = r.referidos || [];
+      pintarRed();
+    })
+    .catch(e => {
+      redCargandoFlag = false;
+      const el = document.getElementById("redContent");
+      if (el) el.innerHTML = `<div class="text-center py-14 text-red-400 text-sm">⚠️ Sin conexión con el backend (${escAttr(e.message || e)})</div>`;
+    });
+}
+
+function pintarRed() {
+  const el = document.getElementById("redContent");
+  if (!el) return;
+  const rol = usuarioActual?.rol;
+  if (rol === "asesor")          el.innerHTML = pintarRedAsesor();
+  else if (rol === "revendedor") el.innerHTML = pintarRedRevendedor();
+  else                           el.innerHTML = pintarRedTasador();
+}
+
+// ───── VISTA ASESOR ─────
+function pintarRedAsesor() {
+  if (!redReferidos.length) {
+    return `<div class="text-center py-16">
+      <div class="text-5xl mb-3">🚘</div>
+      <p class="text-slate-400 text-sm mb-4">Aún no registras vehículos de clientes.</p>
+      <button onclick="abrirFormReferido()" class="bg-sky-600 hover:bg-sky-500 text-white rounded-lg px-5 py-2 text-sm font-semibold">➕ Registrar el primero</button>
+    </div>`;
+  }
+  const filas = redReferidos.map(r => `
+    <tr class="border-b border-slate-800/60">
+      <td class="py-2.5 pr-3 text-slate-500 text-xs whitespace-nowrap">${escAttr(r.fecha)}</td>
+      <td class="py-2.5 pr-3"><div class="font-semibold text-slate-200">${escAttr(redVehTitulo(r))}</div>
+        <div class="text-[11px] text-slate-500">${escAttr(r.placa || "s/placa")} · ${r.km ? Number(r.km).toLocaleString("en-US") + " km" : "km s/d"}</div></td>
+      <td class="py-2.5 pr-3 text-xs text-slate-300">${escAttr(r.clienteNombre || "")}<div class="text-[11px] text-slate-500">${escAttr(r.clienteTelefono || "")}</div></td>
+      <td class="py-2.5 pr-3">${redChip(r.estado)}</td>
+      <td class="py-2.5 text-right font-bold ${r.precioFinal ? "text-emerald-400" : "text-slate-600"}">${r.precioFinal ? money(r.precioFinal) : "—"}</td>
+    </tr>`).join("");
+  return `
+    <div class="rounded-xl overflow-x-auto" style="background:var(--c-surface);border:1px solid var(--c-border);">
+      <table class="min-w-[640px]">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+          <th class="py-2.5 px-3">Fecha</th><th class="py-2.5 pr-3">Vehículo</th><th class="py-2.5 pr-3">Cliente</th><th class="py-2.5 pr-3">Estado</th><th class="py-2.5 pr-3 text-right">Precio ofrecido</th>
+        </tr></thead>
+        <tbody class="px-3">${filas}</tbody>
+      </table>
+    </div>
+    <p class="text-[11px] text-slate-600 mt-3">💡 Cuando el tasador registre el precio final recibirás una notificación 🔔 y se contactará con tu cliente.</p>`;
+}
+
+function abrirFormReferido() {
+  const marcasOpts = MARCAS.map(m => `<option>${m}</option>`).join("");
+  modal("🚘 Registrar vehículo de cliente (parte de pago)", `
+    <form onsubmit="event.preventDefault();enviarReferido(this)">
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div><label>Cliente *</label><input name="Cliente_Nombre" required placeholder="Nombre completo"></div>
+        <div><label>Teléfono del cliente *</label><input name="Cliente_Telefono" required placeholder="999 888 777"></div>
+        <div><label>Marca *</label><select name="Marca">${marcasOpts}</select></div>
+        <div><label>Modelo *</label><input name="Modelo" required placeholder="Ej: Territory"></div>
+        <div><label>Versión</label><input name="Version" placeholder="Ej: Trend 1.5T"></div>
+        <div><label>Año *</label><input name="Anio" type="number" required min="1990" max="2027" placeholder="2020"></div>
+        <div><label>Placa</label><input name="Placa" placeholder="ABC123" style="text-transform:uppercase"></div>
+        <div><label>Kilometraje</label><input name="KM" type="number" min="0" placeholder="45000"></div>
+        <div><label>Transmisión</label><select name="Transmision"><option>Automática</option><option>Mecánica</option></select></div>
+        <div><label>Combustible</label><select name="Combustible"><option>Gasolina</option><option>Diésel</option><option>GLP</option><option>GNV</option><option>Híbrido</option><option>Eléctrico</option></select></div>
+        <div class="col-span-2"><label>Color</label><input name="Color" placeholder="Blanco"></div>
+        <div class="col-span-2"><label>Observaciones</label><textarea name="Observaciones" rows="2" placeholder="Estado general, detalles, choques, deudas…"></textarea></div>
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cancelar</button>
+        <button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white rounded px-4 py-2 text-sm font-semibold">📤 Enviar al tasador</button>
+      </div>
+    </form>`);
+}
+
+function enviarReferido(form) {
+  const data = {};
+  new FormData(form).forEach((v, k) => data[k] = v);
+  const btn = form.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Enviando…"; }
+  gsCall("registrarReferido", data)
+    .then(r => {
+      if (r && r.exito) { toast(r.mensaje || "✅ Registrado"); closeModal(); initRed(); }
+      else { if (btn) { btn.disabled = false; btn.textContent = "📤 Enviar al tasador"; } toast("⚠️ " + ((r && r.error) || "No se pudo registrar"), "error"); }
+    })
+    .catch(e => { if (btn) { btn.disabled = false; btn.textContent = "📤 Enviar al tasador"; } toast("⚠️ " + (e.message || e), "error"); });
+}
+
+// ───── VISTA REVENDEDOR (pujas ciegas) ─────
+function pintarRedRevendedor() {
+  if (!redReferidos.length) {
+    return `<div class="text-center py-16"><div class="text-5xl mb-3">🕐</div>
+      <p class="text-slate-400 text-sm">No hay vehículos en consulta por ahora.<br>Te llegará una notificación 🔔 cuando el tasador derive uno.</p></div>`;
+  }
+  const cards = redReferidos.map(r => {
+    const p = r.miPropuesta;
+    const chipProp = !p ? "" :
+      p.estado === "Aprobada"   ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="${RED_CHIP["Comprado"]}">✅ APROBADA</span>` :
+      p.estado === "Descartada" ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="${RED_CHIP["Rechazado"]}">No seleccionada</span>` :
+                                  `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="${RED_CHIP["En Consulta"]}">⏳ En evaluación</span>`;
+    const bloqueGanada = r.ganada ? `
+      <div class="mt-3 rounded-lg p-3 text-xs" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.35);color:#34d399;">
+        🎉 <b>Tu propuesta de ${money(r.precioAprobado || (p && p.monto) || 0)} fue aprobada.</b><br>
+        Precio referencial de trabajo — sujeto a inspección en taller. El tasador te contactará.
+      </div>` : "";
+    const puedeProponer = r.estado === "En Consulta" && (!p || p.estado !== "Aprobada");
+    const formProp = puedeProponer ? `
+      <div class="mt-3 flex gap-2">
+        <input id="prop-monto-${escAttr(r.id)}" type="number" min="1" placeholder="Monto US$" value="${p ? p.monto : ""}"
+               class="flex-1 text-sm" style="min-width:0">
+        <button onclick="enviarPropuestaUI('${escAttr(r.id)}')" class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap">
+          ${p ? "Actualizar" : "💰 Proponer"}</button>
+      </div>
+      <input id="prop-coment-${escAttr(r.id)}" placeholder="Comentario (opcional)" value="${p ? escAttr(p.comentario) : ""}" class="mt-2 w-full text-xs">` : "";
+    return `
+      <div class="rounded-xl p-4" style="background:var(--c-surface);border:1px solid var(--c-border);">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="font-bold text-slate-100">${escAttr(redVehTitulo(r))}</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              ${r.km ? Number(r.km).toLocaleString("en-US") + " km" : "km s/d"} · ${escAttr(r.transmision || "—")} · ${escAttr(r.combustible || "—")}${r.color ? " · " + escAttr(r.color) : ""}
+            </div>
+          </div>
+          ${redChip(r.estado)}
+        </div>
+        ${r.observaciones ? `<p class="text-[11px] text-slate-400 mt-2 line-clamp-2">${escAttr(r.observaciones)}</p>` : ""}
+        ${p ? `<div class="mt-3 flex items-center justify-between text-xs"><span class="text-slate-400">Mi propuesta: <b class="text-slate-100">${money(p.monto)}</b></span>${chipProp}</div>` : ""}
+        ${formProp}
+        ${bloqueGanada}
+      </div>`;
+  }).join("");
+  return `<div class="grid gap-4" style="grid-template-columns:repeat(auto-fill,minmax(290px,1fr));">${cards}</div>
+    <p class="text-[11px] text-slate-600 mt-4">🔒 Tus propuestas son privadas: ningún otro revendedor puede verlas.</p>`;
+}
+
+function enviarPropuestaUI(refId) {
+  const monto = Number(document.getElementById("prop-monto-" + refId)?.value) || 0;
+  const comentario = document.getElementById("prop-coment-" + refId)?.value || "";
+  if (monto <= 0) { toast("⚠️ Ingresa un monto válido", "error"); return; }
+  gsCall("enviarPropuesta", { referidoId: refId, monto, comentario })
+    .then(r => {
+      if (r && r.exito) { toast(r.mensaje || "✅ Propuesta enviada"); initRed(); }
+      else toast("⚠️ " + ((r && r.error) || "No se pudo enviar"), "error");
+    })
+    .catch(e => toast("⚠️ " + (e.message || e), "error"));
+}
+
+// ───── VISTA TASADOR / ADMIN ─────
+function pintarRedTasador() {
+  const nuevos = redReferidos.filter(r => r.estado === "Nuevo").length;
+  const enConsulta = redReferidos.filter(r => r.estado === "En Consulta").length;
+  const aprobados = redReferidos.filter(r => r.estado === "Propuesta Aprobada").length;
+  const kpis = `
+    <div class="grid grid-cols-3 gap-3 mb-5 max-w-xl">
+      ${[["🆕 Nuevos", nuevos, "#38bdf8"], ["📢 En consulta", enConsulta, "#fbbf24"], ["✅ Aprobados", aprobados, "#34d399"]]
+        .map(([l, v, c]) => `<div class="rounded-xl p-3 text-center" style="background:var(--c-surface);border:1px solid var(--c-border);">
+          <div class="text-2xl font-black" style="color:${c}">${v}</div><div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">${l}</div></div>`).join("")}
+    </div>`;
+  if (!redReferidos.length) {
+    return kpis + `<div class="text-center py-14"><div class="text-5xl mb-3">📭</div>
+      <p class="text-slate-400 text-sm">Sin referidos todavía. Cuando un asesor registre un vehículo te llegará una notificación 🔔.</p></div>`;
+  }
+  const filas = redReferidos.map(r => `
+    <tr class="border-b border-slate-800/60 hover:bg-white/[.015] cursor-pointer" onclick="abrirDetalleReferido('${escAttr(r.id)}')">
+      <td class="py-2.5 px-3 text-slate-500 text-xs whitespace-nowrap">${escAttr(r.fecha)}</td>
+      <td class="py-2.5 pr-3 text-xs">${escAttr(r.concesionario || "—")}<div class="text-[10px] text-slate-500">${escAttr(r.asesorNombre || "")}</div></td>
+      <td class="py-2.5 pr-3"><div class="font-semibold text-slate-200 text-[13px]">${escAttr(redVehTitulo(r))}</div>
+        <div class="text-[11px] text-slate-500">${escAttr(r.placa || "s/placa")} · ${r.km ? Number(r.km).toLocaleString("en-US") + " km" : "km s/d"}</div></td>
+      <td class="py-2.5 pr-3 text-xs text-slate-300">${escAttr(r.clienteNombre || "")}</td>
+      <td class="py-2.5 pr-3">${redChip(r.estado)}</td>
+      <td class="py-2.5 pr-3 text-center text-xs">${r.numPropuestas ? `<b class="text-slate-200">${r.numPropuestas}</b> · max <b class="text-emerald-400">${money(r.mejorMonto)}</b>` : '<span class="text-slate-600">—</span>'}</td>
+      <td class="py-2.5 pr-3 text-right" onclick="event.stopPropagation()">
+        ${r.estado === "Nuevo" ? `<button onclick="derivarUI('${escAttr(r.id)}')" class="bg-amber-600/90 hover:bg-amber-500 text-white rounded px-2.5 py-1 text-[11px] font-bold">📢 Derivar</button>` : ""}
+        <button onclick="abrirDetalleReferido('${escAttr(r.id)}')" class="border border-slate-700 text-slate-300 hover:text-white rounded px-2.5 py-1 text-[11px] font-semibold">Gestionar</button>
+      </td>
+    </tr>`).join("");
+  return kpis + `
+    <div class="rounded-xl overflow-x-auto" style="background:var(--c-surface);border:1px solid var(--c-border);">
+      <table class="min-w-[860px]">
+        <thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+          <th class="py-2.5 px-3">Fecha</th><th class="py-2.5 pr-3">Origen</th><th class="py-2.5 pr-3">Vehículo</th>
+          <th class="py-2.5 pr-3">Cliente</th><th class="py-2.5 pr-3">Estado</th><th class="py-2.5 pr-3 text-center">Propuestas</th><th class="py-2.5 pr-3 text-right">Acciones</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>`;
+}
+
+function derivarUI(refId) {
+  confirmAccion({
+    title: "Derivar a revendedores",
+    message: "Se notificará a TODOS los revendedores activos para que envíen sus propuestas (ciegas entre sí). ¿Continuar?",
+    confirmText: "📢 Derivar", icon: "📢"
+  }).then(ok => {
+    if (!ok) return;
+    gsCall("derivarARevendedores", { id: refId })
+      .then(r => { if (r && r.exito) { toast(r.mensaje); closeModal(); initRed(); } else toast("⚠️ " + ((r && r.error) || "Error"), "error"); })
+      .catch(e => toast("⚠️ " + (e.message || e), "error"));
+  });
+}
+
+function abrirDetalleReferido(refId) {
+  const r = redReferidos.find(x => x.id === refId);
+  if (!r) return;
+  const wa = waLink(r.clienteTelefono);
+  const estados = ["Nuevo", "En Consulta", "Propuesta Aprobada", "En Inspección", "Tasación Final", "Comprado", "Rechazado"];
+  modal(`🚘 ${escAttr(redVehTitulo(r))} · ${escAttr(r.id)}`, `
+    <div class="flex items-center gap-2 mb-4">${redChip(r.estado)}
+      <span class="text-[11px] text-slate-500">Registrado: ${escAttr(r.fecha)} · ${escAttr(r.concesionario || "")} (${escAttr(r.asesorNombre || "s/asesor")})</span></div>
+
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-4">
+      <div><span class="text-slate-500">Placa:</span> <b>${escAttr(r.placa || "—")}</b></div>
+      <div><span class="text-slate-500">KM:</span> <b>${r.km ? Number(r.km).toLocaleString("en-US") : "—"}</b></div>
+      <div><span class="text-slate-500">Transmisión:</span> ${escAttr(r.transmision || "—")}</div>
+      <div><span class="text-slate-500">Combustible:</span> ${escAttr(r.combustible || "—")}</div>
+      <div><span class="text-slate-500">Color:</span> ${escAttr(r.color || "—")}</div>
+      <div><span class="text-slate-500">Precio aprobado:</span> <b class="text-emerald-400">${r.precioAprobado ? money(r.precioAprobado) + " (" + escAttr(r.revendedorAprobadoNombre) + ")" : "—"}</b></div>
+    </div>
+    ${r.observaciones ? `<p class="text-[11px] text-slate-400 mb-4">📝 ${escAttr(r.observaciones)}</p>` : ""}
+
+    <div class="rounded-lg p-3 mb-4 flex items-center justify-between" style="background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.2);">
+      <div class="text-xs"><span class="text-slate-500">Cliente:</span> <b class="text-slate-100">${escAttr(r.clienteNombre || "—")}</b>
+        <span class="text-slate-500 ml-2">${escAttr(r.clienteTelefono || "")}</span></div>
+      ${wa ? `<a href="${wa}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-1.5 text-xs font-bold">📱 WhatsApp</a>` : ""}
+    </div>
+
+    <h4 class="text-xs font-bold text-slate-300 mb-2">💰 Propuestas de revendedores</h4>
+    <div id="detPropuestas" class="mb-4 text-xs text-slate-500"><div class="spinner mx-auto my-3" style="width:22px;height:22px;"></div></div>
+
+    <div class="border-t border-slate-800 pt-3">
+      <h4 class="text-xs font-bold text-slate-300 mb-2">⚙️ Gestión</h4>
+      <div class="grid grid-cols-3 gap-3 mb-3">
+        <div><label>Estado</label><select id="detEstado">${estados.map(e => `<option ${e === r.estado ? "selected" : ""}>${e}</option>`).join("")}</select></div>
+        <div><label>Precio calculadora</label><input id="detPrecioCalc" type="number" min="0" value="${r.precioCalculadora || ""}" placeholder="US$"></div>
+        <div><label>Precio FINAL (cliente)</label><input id="detPrecioFinal" type="number" min="0" value="${r.precioFinal || ""}" placeholder="US$"></div>
+      </div>
+      <div class="mb-3"><label>Notas del tasador</label><textarea id="detNotas" rows="2">${escAttr(r.notasTasador || "")}</textarea></div>
+      <div class="flex gap-2 justify-between flex-wrap">
+        <div>${(r.estado === "Nuevo" || r.estado === "En Consulta") ? `<button onclick="derivarUI('${escAttr(r.id)}')" class="bg-amber-600 hover:bg-amber-500 text-white rounded px-3 py-2 text-xs font-bold">📢 ${r.estado === "Nuevo" ? "Derivar a revendedores" : "Re-notificar revendedores"}</button>` : ""}</div>
+        <div class="flex gap-2">
+          <button onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cerrar</button>
+          <button onclick="guardarDetalleReferido('${escAttr(r.id)}')" class="bg-sky-600 hover:bg-sky-500 text-white rounded px-4 py-2 text-sm font-semibold">💾 Guardar cambios</button>
+        </div>
+      </div>
+      <p class="text-[10px] text-slate-600 mt-2">Al guardar un <b>precio final</b> se notifica automáticamente al asesor del concesionario. El precio aprobado del revendedor es referencial (sujeto a inspección en taller).</p>
+    </div>`);
+  cargarPropuestasDetalle(refId, r.estado);
+}
+
+function cargarPropuestasDetalle(refId, estadoRef) {
+  gsCall("listarPropuestas", { referidoId: refId })
+    .then(res => {
+      const el = document.getElementById("detPropuestas");
+      if (!el) return;
+      if (!res || res.exito === false) { el.innerHTML = `⚠️ ${escAttr((res && res.error) || "Error")}`; return; }
+      const props = res.propuestas || [];
+      if (!props.length) { el.innerHTML = `<span class="text-slate-600">Sin propuestas todavía${estadoRef === "Nuevo" ? " — deriva el vehículo para recibirlas" : ""}.</span>`; return; }
+      el.innerHTML = props.map((p, i) => `
+        <div class="flex items-center justify-between gap-2 py-1.5 ${i > 0 ? "border-t border-slate-800/60" : ""}">
+          <div><b class="text-slate-200">${escAttr(p.revendedorNombre)}</b>
+            <span class="text-slate-500 ml-1">${escAttr(p.fecha)}</span>
+            ${p.comentario ? `<div class="text-[10px] text-slate-500">${escAttr(p.comentario)}</div>` : ""}</div>
+          <div class="flex items-center gap-2 whitespace-nowrap">
+            <b class="${i === 0 ? "text-emerald-400" : "text-slate-300"}">${money(p.monto)}</b>
+            ${p.estado === "Aprobada" ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="${RED_CHIP["Comprado"]}">✅ Aprobada</span>`
+              : p.estado === "Descartada" ? `<span class="text-[10px] px-2 py-0.5 rounded-full text-slate-500" style="border:1px solid #334155">Descartada</span>`
+              : `<button onclick="aprobarUI('${escAttr(p.id)}','${escAttr(p.revendedorNombre)}',${p.monto},'${escAttr(refId)}')" class="bg-emerald-600 hover:bg-emerald-500 text-white rounded px-2.5 py-1 text-[11px] font-bold">✔ Aprobar</button>`}
+          </div>
+        </div>`).join("");
+    })
+    .catch(e => { const el = document.getElementById("detPropuestas"); if (el) el.innerHTML = `⚠️ ${escAttr(e.message || e)}`; });
+}
+
+function aprobarUI(propId, revNombre, monto, refId) {
+  confirmAccion({
+    title: "Aprobar propuesta",
+    message: `Aprobar la propuesta de ${revNombre} por ${money(monto)}. Se le notificará que es el precio de trabajo (sujeto a inspección en taller) y las demás propuestas quedarán descartadas. ¿Confirmar?`,
+    confirmText: "✔ Aprobar", icon: "✅"
+  }).then(ok => {
+    if (!ok) return;
+    gsCall("aprobarPropuesta", { propuestaId: propId })
+      .then(r => {
+        if (r && r.exito) { toast(r.mensaje); closeModal(); initRed(); }
+        else toast("⚠️ " + ((r && r.error) || "Error"), "error");
+      })
+      .catch(e => toast("⚠️ " + (e.message || e), "error"));
+  });
+}
+
+function guardarDetalleReferido(refId) {
+  const data = {
+    id: refId,
+    estado: document.getElementById("detEstado")?.value,
+    precioCalculadora: document.getElementById("detPrecioCalc")?.value,
+    precioFinal: document.getElementById("detPrecioFinal")?.value,
+    notasTasador: document.getElementById("detNotas")?.value
+  };
+  gsCall("actualizarReferido", data)
+    .then(r => {
+      if (r && r.exito) { toast(r.mensaje || "✅ Guardado"); closeModal(); initRed(); }
+      else toast("⚠️ " + ((r && r.error) || "Error al guardar"), "error");
+    })
+    .catch(e => toast("⚠️ " + (e.message || e), "error"));
+}
+
+// ───── ADMIN · Usuarios de la Red ─────
+function abrirUsuariosRed() {
+  modal("👥 Usuarios de la Red", `
+    <div id="usuariosLista" class="mb-4 text-xs text-slate-500"><div class="spinner mx-auto my-3" style="width:22px;height:22px;"></div></div>
+    <div class="border-t border-slate-800 pt-3">
+      <h4 class="text-xs font-bold text-slate-300 mb-2">➕ Crear usuario</h4>
+      <form onsubmit="event.preventDefault();crearUsuarioUI(this)">
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div><label>Nombre *</label><input name="nombre" required placeholder="Juan Pérez"></div>
+          <div><label>Rol *</label><select name="rol">
+            <option value="asesor">🤝 Asesor (concesionario)</option>
+            <option value="revendedor">💰 Revendedor</option>
+            <option value="tasador">📊 Tasador</option>
+            <option value="tecnico">🔧 Técnico</option>
+            <option value="admin">👑 Admin</option></select></div>
+          <div><label>PIN * (mín. 4, único)</label><input name="pin" required minlength="4" placeholder="PIN de acceso"></div>
+          <div><label>Email (para avisos)</label><input name="email" type="email" placeholder="correo@gmail.com"></div>
+          <div><label>Concesionario</label><input name="concesionario" placeholder="Solo asesores"></div>
+          <div><label>Teléfono</label><input name="telefono" placeholder="999 888 777"></div>
+        </div>
+        <div class="flex justify-end"><button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white rounded px-4 py-2 text-sm font-semibold">Crear usuario</button></div>
+      </form>
+    </div>`);
+  cargarUsuariosRed();
+}
+
+function cargarUsuariosRed() {
+  gsCall("listarUsuariosRed")
+    .then(r => {
+      const el = document.getElementById("usuariosLista");
+      if (!el) return;
+      if (!r || r.exito === false) { el.innerHTML = `⚠️ ${escAttr((r && r.error) || "Error")}`; return; }
+      el.innerHTML = (r.usuarios || []).map(u => `
+        <div class="flex items-center justify-between gap-2 py-1.5 border-b border-slate-800/60">
+          <div><b style="color:${escAttr(u.color || "#e2e8f0")}">${ICONO_ROL[u.rol] || "👤"} ${escAttr(u.nombre)}</b>
+            <span class="text-slate-500 ml-1">${escAttr(u.rol)}${u.concesionario ? " · " + escAttr(u.concesionario) : ""}${u.email ? " · " + escAttr(u.email) : ""}</span></div>
+          <button onclick="toggleUsuarioUI('${escAttr(u.id)}',${u.activo ? "false" : "true"})"
+            class="text-[11px] font-bold rounded px-2.5 py-1 ${u.activo ? "text-red-400 border border-red-900/60 hover:bg-red-950/40" : "text-emerald-400 border border-emerald-900/60 hover:bg-emerald-950/40"}">
+            ${u.activo ? "Desactivar" : "Activar"}</button>
+        </div>`).join("") || '<span class="text-slate-600">Sin usuarios.</span>';
+    })
+    .catch(e => { const el = document.getElementById("usuariosLista"); if (el) el.innerHTML = `⚠️ ${escAttr(e.message || e)}`; });
+}
+
+function crearUsuarioUI(form) {
+  const data = {};
+  new FormData(form).forEach((v, k) => data[k] = v);
+  gsCall("crearUsuarioRed", data)
+    .then(r => {
+      if (r && r.exito) { toast(r.mensaje); form.reset(); cargarUsuariosRed(); }
+      else toast("⚠️ " + ((r && r.error) || "Error"), "error");
+    })
+    .catch(e => toast("⚠️ " + (e.message || e), "error"));
+}
+
+function toggleUsuarioUI(id, activo) {
+  gsCall("desactivarUsuario", { id, activo })
+    .then(r => {
+      if (r && r.exito) { toast(r.mensaje); cargarUsuariosRed(); }
+      else toast("⚠️ " + ((r && r.error) || "Error"), "error");
+    })
+    .catch(e => toast("⚠️ " + (e.message || e), "error"));
+}
+
+// ───── NOTIFICACIONES · campana con polling ─────
+let notifTimer = null;
+let notifCache = [];
+
+function iniciarNotifPolling() {
+  detenerNotifPolling();
+  cargarNotificaciones();
+  notifTimer = setInterval(cargarNotificaciones, 60000);
+}
+function detenerNotifPolling() {
+  if (notifTimer) { clearInterval(notifTimer); notifTimer = null; }
+  document.getElementById("notifPanel")?.classList.add("hidden");
+}
+
+function cargarNotificaciones() {
+  if (!sessionToken) return;
+  gsCall("misNotificaciones")
+    .then(r => {
+      if (!r || r.exito === false) return;
+      notifCache = r.notificaciones || [];
+      const badge = document.getElementById("notifBadge");
+      if (badge) {
+        badge.textContent = r.noLeidas > 99 ? "99+" : r.noLeidas;
+        badge.classList.toggle("hidden", !r.noLeidas);
+      }
+      // si el panel está abierto, refrescarlo
+      if (!document.getElementById("notifPanel")?.classList.contains("hidden")) renderNotifLista();
+    })
+    .catch(() => {}); // polling silencioso: no molestar con toasts
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById("notifPanel");
+  if (!panel) return;
+  panel.classList.toggle("hidden");
+  if (!panel.classList.contains("hidden")) renderNotifLista();
+}
+
+function renderNotifLista() {
+  const el = document.getElementById("notifLista");
+  if (!el) return;
+  if (!notifCache.length) { el.innerHTML = '<div class="px-3 py-6 text-center text-xs text-slate-600">Sin notificaciones.</div>'; return; }
+  const iconos = { nuevo_referido: "🚘", vehiculo_en_consulta: "📢", nueva_propuesta: "💰", propuesta_aprobada: "🎉", tasacion_final: "📋" };
+  el.innerHTML = notifCache.map(n => `
+    <div onclick="clickNotif('${escAttr(n.id)}')" class="px-3 py-2.5 cursor-pointer hover:bg-white/[.03] ${n.leida ? "opacity-50" : ""}">
+      <div class="flex gap-2 items-start">
+        <span class="text-base leading-none mt-0.5">${iconos[n.tipo] || "🔔"}</span>
+        <div class="min-w-0">
+          <div class="text-[11.5px] text-slate-300 leading-snug">${escAttr(n.mensaje)}</div>
+          <div class="text-[9.5px] text-slate-600 mt-0.5">${escAttr(n.fecha)} ${escAttr(n.hora)}</div>
+        </div>
+        ${!n.leida ? '<span class="ml-auto mt-1 w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>' : ""}
+      </div>
+    </div>`).join("");
+}
+
+function clickNotif(id) {
+  const n = notifCache.find(x => x.id === id);
+  if (n && !n.leida) {
+    n.leida = true;
+    gsCall("marcarNotifLeida", { id }).then(cargarNotificaciones).catch(() => {});
+  }
+  document.getElementById("notifPanel")?.classList.add("hidden");
+  if (tabPermitido("red")) { currentTab = "red"; render(); }
+}
+
+function marcarTodasLeidas() {
+  gsCall("marcarNotifLeida", { todas: true }).then(() => cargarNotificaciones()).catch(() => {});
+}
+
+// Cerrar el panel de notificaciones al hacer click fuera
+document.addEventListener("click", ev => {
+  const panel = document.getElementById("notifPanel");
+  if (!panel || panel.classList.contains("hidden")) return;
+  if (!panel.contains(ev.target) && !document.getElementById("btnNotif")?.contains(ev.target)) {
+    panel.classList.add("hidden");
+  }
+});
+
+
 // ────────────── INIT ──────────────
 // NOTA: La autenticación va 100% por backend (verificarPin + token).
 // El objeto USUARIOS hardcoded fue eliminado por seguridad — antes permitía
@@ -5022,6 +5576,7 @@ function cerrarSesionForzado() {
   }
   sessionToken = null;
 
+  detenerNotifPolling();   // Fase 2: apagar campana
   usuarioActual = null;
   sessionId = null;
   sessionStartTime = null;
@@ -5053,8 +5608,11 @@ function _completarLogin(usuario, token) {
   aplicarRBAC();
   iniciarSession();
   updateSessionBadge();
-  currentTab = usuario.tabInicial;
-  if (usuario.rol === "admin") {
+  iniciarNotifPolling();   // Fase 2: campana de notificaciones
+  currentTab = usuario.tabInicial || "red";
+  // Solo los roles con acceso al inventario/CRM sincronizan datos completos.
+  // Asesores y revendedores usan únicamente la Red (carga sus propios datos).
+  if (usuario.rol === "admin" || usuario.rol === "tasador") {
     sincronizar();
   } else {
     cargando = false;
@@ -5086,7 +5644,8 @@ function intentarLogin() {
         err.classList.add("hidden");
         document.getElementById("pinInput").value = "";
         _completarLogin({
-          rol: r.rol, nombre: r.nombre, color: r.color, tabInicial: r.tabInicial
+          rol: r.rol, nombre: r.nombre, color: r.color, tabInicial: r.tabInicial,
+          userId: r.userId, concesionario: r.concesionario || ""
         }, r.token);
       } else {
         // Backend respondió pero el PIN no es válido → NO probar nada más
@@ -5105,23 +5664,46 @@ function intentarLogin() {
     .verificarPin(pin);
 }
 
+// ───── RBAC · Fase 2: pestañas permitidas por rol ─────
+// null = todas las pestañas (admin)
+const TABS_POR_ROL = {
+  admin      : null,
+  tecnico    : ["inspeccion"],
+  tasador    : ["red", "tasadora", "cotizaciones", "inspeccion"],
+  asesor     : ["red"],
+  revendedor : ["red"]
+};
+const ICONO_ROL = { admin: "👑", tecnico: "🔧", tasador: "📊", asesor: "🤝", revendedor: "💰" };
+
+function tabsPermitidos() {
+  if (!usuarioActual) return [];
+  const t = TABS_POR_ROL[usuarioActual.rol];
+  if (t === null || t === undefined && usuarioActual.rol === "admin") return null; // admin: todas
+  return t || ["inspeccion"]; // rol desconocido → mínimo
+}
+
+function tabPermitido(tab) {
+  const t = tabsPermitidos();
+  return t === null || (Array.isArray(t) && t.includes(tab));
+}
+
 function aplicarRBAC() {
   if(!usuarioActual) return;
-  const esAdmin = usuarioActual.rol === "admin";
+  const permitidas = tabsPermitidos();
   document.querySelectorAll(".tab-btn").forEach(btn => {
-    const role = btn.dataset.role;
-    if(role === "admin" && !esAdmin) {
-      btn.classList.add("hidden");
-    } else {
-      btn.classList.remove("hidden");
-    }
+    const visible = permitidas === null || permitidas.includes(btn.dataset.tab);
+    btn.classList.toggle("hidden", !visible);
   });
-  document.getElementById("btnSync").style.display = esAdmin ? "" : "none";
+  // Sincronizar (lee inventario/CRM) solo para roles internos con acceso a datos
+  const puedeSync = ["admin", "tasador"].includes(usuarioActual.rol);
+  document.getElementById("btnSync").style.display = puedeSync ? "" : "none";
   // Mostrar "Cambiar PIN" solo si tenemos token del backend (no en modo legacy)
   const btnPin = document.getElementById("btnCambiarPin");
   if (btnPin) btnPin.classList.toggle("hidden", !sessionToken);
+  // Campana de notificaciones: para todos los usuarios logueados
+  document.getElementById("btnNotif")?.classList.toggle("hidden", !sessionToken);
   const badge = document.getElementById("userBadge");
-  badge.textContent = `${usuarioActual.rol === "admin" ? "👑" : "🔧"} ${usuarioActual.nombre}`;
+  badge.textContent = `${ICONO_ROL[usuarioActual.rol] || "👤"} ${usuarioActual.nombre}`;
   badge.style.background = usuarioActual.color + "22";
   badge.style.color = usuarioActual.color;
   badge.style.border = `1px solid ${usuarioActual.color}55`;
