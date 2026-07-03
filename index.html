@@ -736,7 +736,7 @@
      Detecta entorno y usa fetch() si no estamos en Apps Script.
      ============================================================ -->
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzJLbjVB018pMdsKThYz68ic_yWqU-b6bBHjDxUszzotd7HAR5mrErtbETlLfh9BbD7/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF59qfxdHXAlnznuiasnwChpIC5eepBhltQEDG1X4O54YXrnqN6Tj6qPeQCUnwVtqD/exec';
 
 // Versión del backend que este HTML necesita. Si el deployment de Apps Script
 // tiene otra versión (o es tan viejo que no responde), la app muestra un banner
@@ -876,38 +876,19 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
 })();
 
 // ─────────────────────────────────────────────────────────────
-// AUTODIAGNÓSTICO: ¿el backend publicado es la versión correcta?
-// Corre al abrir la app. Si el deployment de Apps Script está
-// desactualizado, muestra un banner con los pasos exactos.
+// Chequeo de versión del backend — SOLO en la consola (F12),
+// sin elementos visibles para el usuario.
 // ─────────────────────────────────────────────────────────────
 function verificarVersionBackend() {
   fetch(APPS_SCRIPT_URL + '?action=version&_t=' + Date.now(), { redirect: 'follow', cache: 'no-store' })
     .then(r => r.json())
     .then(r => {
-      const activa = (r && r.version) || null;
-      const banner = document.getElementById('bannerVersion');
-      if (activa === BACKEND_VERSION_ESPERADA) {
-        if (banner) banner.remove();
-        console.log('✅ Backend actualizado:', activa);
-        return;
-      }
-      mostrarBannerVersion(activa);
+      const activa = (r && r.version) || 'versión antigua (sin marcador)';
+      if (activa === BACKEND_VERSION_ESPERADA) console.log('✅ Backend actualizado:', activa);
+      else console.warn('⚠️ Backend DESACTUALIZADO. Esperado:', BACKEND_VERSION_ESPERADA,
+        '· Activo:', activa, '→ Apps Script: Implementar → Administrar implementaciones → ✏️ → Nueva versión');
     })
-    .catch(() => {}); // sin internet: no molestar con falsos positivos
-}
-
-function mostrarBannerVersion(activa) {
-  if (document.getElementById('bannerVersion')) return;
-  const div = document.createElement('div');
-  div.id = 'bannerVersion';
-  div.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#7f1d1d;border-bottom:2px solid #ef4444;color:#fecaca;font-size:12px;line-height:1.5;padding:10px 36px 10px 14px;font-family:system-ui,sans-serif;';
-  div.innerHTML =
-    '<b>⚠️ El backend de Google está DESACTUALIZADO</b> — la app apunta a la versión <b>' +
-    BACKEND_VERSION_ESPERADA + '</b> pero el deployment responde: <b>' + (activa ? activa : 'versión antigua (sin marcador)') + '</b>.<br>' +
-    'Verás errores tipo "Acción no reconocida" hasta corregirlo: abre <b>Apps Script</b> → pega los códigos nuevos en Código.gs / RED-TASACIONES / NOMINA-FACTURACION → ' +
-    '<b>Implementar → Administrar implementaciones → ✏️ → Nueva versión → Implementar</b> → recarga esta app.' +
-    '<button onclick="this.parentElement.remove()" style="position:absolute;top:6px;right:10px;background:none;border:none;color:#fecaca;font-size:16px;cursor:pointer">✕</button>';
-  document.body.appendChild(div);
+    .catch(() => {});
 }
 
 verificarVersionBackend();
