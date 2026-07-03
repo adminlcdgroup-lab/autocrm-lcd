@@ -256,7 +256,8 @@
       <div id="loginError" class="hidden text-red-400 text-xs text-center mb-2 mt-1"></div>
       <button type="submit" class="w-full btn-primary mt-4" style="padding:12px;font-size:14px;">Ingresar →</button>
     </form>
-    <div class="text-center text-slate-600 text-[11px] mt-7 tracking-wider">© LCD Group S.A.C. · v2.0</div>
+    <div id="tcLogin" class="hidden text-center text-xs mt-5 rounded-lg py-2 px-3" style="background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);color:#6ee7b7;"></div>
+    <div class="text-center text-slate-600 text-[11px] mt-5 tracking-wider">© LCD Group S.A.C. · v3.0</div>
   </div>
 </div>
 
@@ -315,6 +316,7 @@
           <div id="notifLista" class="divide-y divide-slate-800"></div>
         </div>
       </div>
+      <span id="tcBadge" class="hidden text-[11px] font-bold px-2.5 py-1 rounded-md whitespace-nowrap" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);color:#34d399;" title="Tipo de cambio del dólar (SUNAT) de hoy"></span>
       <span id="sessionBadge" class="hidden text-[10px] text-slate-500 font-mono px-2 py-1 rounded-md" style="background:rgba(255,255,255,.03);border:1px solid var(--c-border);" title="ID de sesión · minutos activos"></span>
       <span id="userBadge" class="hidden text-xs px-3 py-1 rounded-full font-semibold"></span>
       <div id="alertBadge" class="hidden rounded-full px-2.5 py-1 text-xs font-bold cursor-pointer" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#f87171;"></div>
@@ -741,7 +743,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF59qfxdHXAlnz
 // Versión del backend que este HTML necesita. Si el deployment de Apps Script
 // tiene otra versión (o es tan viejo que no responde), la app muestra un banner
 // rojo con las instrucciones — se acabó el misterio del "Acción no reconocida".
-const BACKEND_VERSION_ESPERADA = 'FASE3-R1';
+const BACKEND_VERSION_ESPERADA = 'FASE3-R3';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -892,6 +894,36 @@ function verificarVersionBackend() {
 }
 
 verificarVersionBackend();
+
+// ─────────────────────────────────────────────────────────────
+// TIPO DE CAMBIO DEL DÍA (SUNAT) — visible para TODOS los usuarios
+// al abrir la app: en la pantalla de login y en la barra superior.
+// El backend lo cachea 6 h (una sola consulta al proveedor por día).
+// ─────────────────────────────────────────────────────────────
+function cargarTipoCambio() {
+  fetch(APPS_SCRIPT_URL + '?action=tipoCambio&_t=' + Date.now(), { redirect: 'follow', cache: 'no-store' })
+    .then(r => r.json())
+    .then(r => {
+      if (!r || r.exito === false || !r.venta) return;
+      const compra = Number(r.compra).toFixed(3);
+      const venta  = Number(r.venta).toFixed(3);
+      const badge = document.getElementById('tcBadge');
+      if (badge) {
+        badge.textContent = `💱 $1 = S/ ${venta}`;
+        badge.title = `Tipo de cambio ${r.fuente || 'SUNAT'} · ${r.fecha || 'hoy'} · Compra S/ ${compra} · Venta S/ ${venta}`;
+        badge.classList.remove('hidden');
+      }
+      const login = document.getElementById('tcLogin');
+      if (login) {
+        login.innerHTML = `💱 <b>Dólar hoy (${r.fuente || 'SUNAT'})</b> · Compra S/ ${compra} · Venta S/ ${venta}`;
+        login.classList.remove('hidden');
+      }
+    })
+    .catch(() => {});
+}
+
+cargarTipoCambio();
+setInterval(cargarTipoCambio, 6 * 60 * 60 * 1000);  // refresca cada 6 h si dejan la app abierta
 </script>
 
 <script>
