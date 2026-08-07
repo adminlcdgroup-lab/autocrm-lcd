@@ -251,10 +251,16 @@
       <p class="text-slate-500 text-xs mt-1.5 tracking-wide">DIVISIÓN DE EVALUACIONES TÉCNICAS</p>
     </div>
     <form onsubmit="event.preventDefault();intentarLogin()">
-      <label class="block mb-2">Contraseña / PIN</label>
-      <input id="pinInput" type="password" autocomplete="off" autofocus placeholder="••••" maxlength="32" class="text-center text-lg tracking-widest mb-2">
+      <label class="block mb-2">Usuario</label>
+      <input id="userInput" type="text" autocomplete="username" autofocus placeholder="tu.usuario" maxlength="32"
+             autocapitalize="none" spellcheck="false" class="mb-3" style="text-transform:lowercase">
+      <label class="block mb-2">Contraseña</label>
+      <input id="pinInput" type="password" autocomplete="current-password" placeholder="••••••••" maxlength="64" class="mb-2">
       <div id="loginError" class="hidden text-red-400 text-xs text-center mb-2 mt-1"></div>
       <button type="submit" class="w-full btn-primary mt-4" style="padding:12px;font-size:14px;">Ingresar →</button>
+      <p class="text-slate-600 text-[10px] text-center mt-3">
+        ¿Aún entras solo con PIN? Déjalo en Contraseña y el campo Usuario vacío.
+      </p>
     </form>
     <div id="tcLogin" class="hidden text-center text-xs mt-5 rounded-lg py-2 px-3" style="background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);color:#6ee7b7;"></div>
     <div class="text-center text-slate-600 text-[11px] mt-5 tracking-wider">© LCD Group S.A.C. · v3.0</div>
@@ -738,12 +744,12 @@
      Detecta entorno y usa fetch() si no estamos en Apps Script.
      ============================================================ -->
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxROk-s_z3LpRiavRpBmoDStn4lk7HyuvFzEFCt6BI7Tnr5lz2wpCR9U8xPeejO77wI/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzIqgtsSHQJSlfcH7WXbvWrYaF2uy7dW9zwTJaDl6RyVsJwDpy2hmMafdbg-UzStDDb/exec';
 
 // Versión del backend que este HTML necesita. Si el deployment de Apps Script
 // tiene otra versión (o es tan viejo que no responde), la app muestra un banner
 // rojo con las instrucciones — se acabó el misterio del "Acción no reconocida".
-const BACKEND_VERSION_ESPERADA = 'FASE3-R6';
+const BACKEND_VERSION_ESPERADA = 'FASE3-R7';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -796,7 +802,12 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
     'emitirComprobante':                  { action: 'emitirComprobante' },
     'listarComprobantes':                 { action: 'listarComprobantes' },
     // Fase 4 · Precios de mercado (NeoAuto)
-    'consultarMercado':                   { action: 'consultarMercado' }
+    'consultarMercado':                   { action: 'consultarMercado' },
+    // Auth segura · usuario + contraseña
+    'login':                              { action: 'login' },
+    'validarSesion':                      { action: 'validarSesion' },
+    'cambiarPassword':                    { action: 'cambiarPassword' },
+    'crearUsuarioConPassword':            { action: 'crearUsuarioPassword' }
   };
 
   function fireRequest(fnName, arg, onSuccess, onFailure) {
@@ -6275,6 +6286,7 @@ function cerrarSesionForzado() {
     try { google.script.run.cerrarSesionBackend(sessionToken); } catch(e) {}
   }
   sessionToken = null;
+  _guardarTokenLocal(null);   // que un F5 no reviva una sesión ya cerrada
 
   detenerNotifPolling();   // Fase 2: apagar campana
   usuarioActual = null;
@@ -6284,10 +6296,12 @@ function cerrarSesionForzado() {
   document.getElementById("appWrapper").classList.add("hidden");
   document.getElementById("loginScreen").classList.remove("hidden");
   document.getElementById("pinInput").value = "";
+  const inpUser = document.getElementById("userInput");
+  if (inpUser) inpUser.value = "";
   document.getElementById("loginError").classList.add("hidden");
   document.getElementById("userBadge")?.classList.add("hidden");
   document.getElementById("sessionBadge")?.classList.add("hidden");
-  setTimeout(() => document.getElementById("pinInput")?.focus(), 100);
+  setTimeout(() => (inpUser || document.getElementById("pinInput"))?.focus(), 100);
 }
 
 function updateSessionBadge() {
@@ -6303,6 +6317,7 @@ let sessionToken = null;
 function _completarLogin(usuario, token) {
   usuarioActual = usuario;
   sessionToken = token || null;
+  _guardarTokenLocal(sessionToken);   // sobrevive al F5 mientras la pestaña siga abierta
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appWrapper").classList.remove("hidden");
   aplicarRBAC();
@@ -6322,10 +6337,11 @@ function _completarLogin(usuario, token) {
 }
 
 function intentarLogin() {
-  const pin = document.getElementById("pinInput").value.trim();
-  const err = document.getElementById("loginError");
-  if (!pin) {
-    err.textContent = "Ingresa un PIN.";
+  const usuario = (document.getElementById("userInput")?.value || "").trim().toLowerCase();
+  const clave   = document.getElementById("pinInput").value.trim();
+  const err     = document.getElementById("loginError");
+  if (!clave) {
+    err.textContent = usuario ? "Ingresa tu contraseña." : "Ingresa tu usuario y contraseña.";
     err.classList.remove("hidden");
     return;
   }
@@ -6334,34 +6350,78 @@ function intentarLogin() {
   const btn = document.querySelector('#loginScreen button[type="submit"]');
   if (btn) { btn.disabled = true; btn.textContent = "Verificando..."; }
 
-  // El BACKEND es source of truth para auth. No hay fallback hardcoded ya
-  // que comprometía la seguridad (cualquiera con acceso al HTML conocía los PINs).
-  // Solo permitimos fallback de EMERGENCIA si el backend no responde por red.
+  const limpiar = () => {
+    if (btn) { btn.disabled = false; btn.textContent = "Ingresar →"; }
+    document.getElementById("pinInput").value = "";
+  };
+
+  const alRecibir = r => {
+    if (r && r.exito && r.token) {
+      err.classList.add("hidden");
+      limpiar();
+      document.getElementById("userInput").value = "";
+      _completarLogin({
+        rol: r.rol, nombre: r.nombre, color: r.color, tabInicial: r.tabInicial,
+        userId: r.userId, concesionario: r.concesionario || ""
+      }, r.token);
+    } else {
+      err.textContent = (r && r.error) || "Usuario o contraseña incorrectos.";
+      err.classList.remove("hidden");
+      limpiar();
+    }
+  };
+
+  const alFallar = e => {
+    limpiar();
+    err.textContent = "⚠️ Backend no disponible. Verifica tu conexión e intenta de nuevo.";
+    err.classList.remove("hidden");
+    console.warn('Login error de red:', e && (e.message || e));
+  };
+
+  // El BACKEND es source of truth. Sin usuario → login por PIN (modo de
+  // transición, se apaga con desactivarLoginPorPin()).
+  const req = google.script.run.withSuccessHandler(alRecibir).withFailureHandler(alFallar);
+  if (usuario) req.login({ usuario: usuario, password: clave });
+  else         req.verificarPin(clave);
+}
+
+// ───── Persistencia de sesión (sessionStorage, NO localStorage) ─────
+// sessionStorage se borra al cerrar la pestaña; localStorage sobreviviría
+// en equipos compartidos, que es justo lo que no queremos.
+const SESSION_KEY = "lcd_session_token";
+
+function _guardarTokenLocal(token) {
+  try { token ? sessionStorage.setItem(SESSION_KEY, token) : sessionStorage.removeItem(SESSION_KEY); }
+  catch (e) { /* modo privado o storage bloqueado → la sesión simplemente no persiste */ }
+}
+
+function _leerTokenLocal() {
+  try { return sessionStorage.getItem(SESSION_KEY); } catch (e) { return null; }
+}
+
+// Al cargar la página: si hay token guardado, pregunta al backend si sigue
+// vigente. Si sí, entra directo; si no, muestra el login.
+function restaurarSesion() {
+  const token = _leerTokenLocal();
+  if (!token) return;
+
+  const loader = document.getElementById("loader");
+  if (loader) loader.classList.remove("hidden");
+
   google.script.run
     .withSuccessHandler(r => {
-      if (btn) { btn.disabled = false; btn.textContent = "Ingresar"; }
-      if (r && r.exito && r.token) {
-        err.classList.add("hidden");
-        document.getElementById("pinInput").value = "";
+      if (r && r.exito && r.valida) {
         _completarLogin({
           rol: r.rol, nombre: r.nombre, color: r.color, tabInicial: r.tabInicial,
           userId: r.userId, concesionario: r.concesionario || ""
-        }, r.token);
+        }, token);
       } else {
-        // Backend respondió pero el PIN no es válido → NO probar nada más
-        err.textContent = (r && r.error) || "PIN incorrecto. Intente nuevamente.";
-        err.classList.remove("hidden");
-        document.getElementById("pinInput").value = "";
+        _guardarTokenLocal(null);
+        showLoader(false);
       }
     })
-    .withFailureHandler(e => {
-      if (btn) { btn.disabled = false; btn.textContent = "Ingresar"; }
-      // Solo en caso de falla de red real (no de PIN incorrecto) ofrecer fallback de emergencia
-      err.textContent = "⚠️ Backend no disponible. Verifica tu conexión e intenta de nuevo.";
-      err.classList.remove("hidden");
-      console.warn('Login error de red:', e && (e.message || e));
-    })
-    .verificarPin(pin);
+    .withFailureHandler(() => { _guardarTokenLocal(null); showLoader(false); })
+    .validarSesion({ token: token });
 }
 
 // ───── RBAC · Fase 2: pestañas permitidas por rol ─────
@@ -6498,7 +6558,10 @@ document.querySelectorAll(".tab-btn").forEach(b=>{
   b.addEventListener("click", ()=>{ currentTab = b.dataset.tab; render(); });
 });
 
-setTimeout(()=>document.getElementById("pinInput")?.focus(), 100);
+setTimeout(()=>document.getElementById("userInput")?.focus(), 100);
+
+// Si quedó una sesión válida de antes del F5, entra directo sin re-loguear.
+restaurarSesion();
 
 </script>
 
