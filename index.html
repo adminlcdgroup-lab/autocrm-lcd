@@ -5245,12 +5245,13 @@ function abrirFormReferido() {
         <div><label>Año *</label><input name="Anio" type="number" required min="1990" max="2027" placeholder="2020"></div>
         <div><label>Placa</label><input name="Placa" placeholder="ABC123" style="text-transform:uppercase"></div>
         <div><label>Kilometraje</label><input name="KM" type="number" min="0" placeholder="45000"></div>
+        ${["tasador", "admin"].includes(usuarioActual?.rol) ? `
         <div class="col-span-2">
           <button type="button" onclick="consultarMercadoDesdeForm(this)"
             class="w-full border border-violet-500/40 text-violet-300 hover:bg-violet-500/10 rounded-lg px-3 py-2 text-xs font-bold transition-colors">
             📊 Consultar precio de mercado (NeoAuto)</button>
           <div id="mercadoResForm" class="mt-2"></div>
-        </div>
+        </div>` : ""}
         <div><label>Transmisión</label><select name="Transmision"><option>Automática</option><option>Mecánica</option></select></div>
         <div><label>Combustible</label><select name="Combustible"><option>Gasolina</option><option>Diésel</option><option>GLP</option><option>GNV</option><option>Híbrido</option><option>Eléctrico</option></select></div>
         <div><label>Motor</label><input name="Motor" placeholder="Ej: 1.5 Turbo"></div>
