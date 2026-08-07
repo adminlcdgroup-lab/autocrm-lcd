@@ -743,7 +743,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0oCxuHEtJ_2oS
 // Versión del backend que este HTML necesita. Si el deployment de Apps Script
 // tiene otra versión (o es tan viejo que no responde), la app muestra un banner
 // rojo con las instrucciones — se acabó el misterio del "Acción no reconocida".
-const BACKEND_VERSION_ESPERADA = 'FASE3-R5';
+const BACKEND_VERSION_ESPERADA = 'FASE3-R6';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -794,7 +794,9 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
     'registrarPagoNomina':                { action: 'registrarPagoNomina' },
     'consultarDNI':                       { action: 'consultarDNI' },
     'emitirComprobante':                  { action: 'emitirComprobante' },
-    'listarComprobantes':                 { action: 'listarComprobantes' }
+    'listarComprobantes':                 { action: 'listarComprobantes' },
+    // Fase 4 · Precios de mercado (NeoAuto)
+    'consultarMercado':                   { action: 'consultarMercado' }
   };
 
   function fireRequest(fnName, arg, onSuccess, onFailure) {
@@ -5243,6 +5245,12 @@ function abrirFormReferido() {
         <div><label>Año *</label><input name="Anio" type="number" required min="1990" max="2027" placeholder="2020"></div>
         <div><label>Placa</label><input name="Placa" placeholder="ABC123" style="text-transform:uppercase"></div>
         <div><label>Kilometraje</label><input name="KM" type="number" min="0" placeholder="45000"></div>
+        <div class="col-span-2">
+          <button type="button" onclick="consultarMercadoDesdeForm(this)"
+            class="w-full border border-violet-500/40 text-violet-300 hover:bg-violet-500/10 rounded-lg px-3 py-2 text-xs font-bold transition-colors">
+            📊 Consultar precio de mercado (NeoAuto)</button>
+          <div id="mercadoResForm" class="mt-2"></div>
+        </div>
         <div><label>Transmisión</label><select name="Transmision"><option>Automática</option><option>Mecánica</option></select></div>
         <div><label>Combustible</label><select name="Combustible"><option>Gasolina</option><option>Diésel</option><option>GLP</option><option>GNV</option><option>Híbrido</option><option>Eléctrico</option></select></div>
         <div><label>Motor</label><input name="Motor" placeholder="Ej: 1.5 Turbo"></div>
@@ -5507,6 +5515,15 @@ function abrirDetalleReferido(refId) {
       ${wa ? `<a href="${wa}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-1.5 text-xs font-bold">📱 WhatsApp</a>` : ""}
     </div>
 
+    <div class="rounded-lg p-3 mb-4" style="background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.25)">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <h4 class="text-xs font-bold" style="color:#a78bfa">📊 Precio de mercado · NeoAuto</h4>
+        <button onclick="consultarMercadoUI(this,'${escAttr(r.marca)}','${escAttr(r.modelo)}',${Number(r.anio) || 0},${Number(r.km) || 0},'mercadoResDet')"
+          class="border border-violet-500/40 text-violet-300 hover:bg-violet-500/10 rounded px-3 py-1 text-[11px] font-bold transition-colors">Consultar</button>
+      </div>
+      <div id="mercadoResDet"></div>
+    </div>
+
     ${(() => {
       // Precios referenciales: referidos anteriores del MISMO marca+modelo
       const refs = redReferidos.filter(x => x.id !== r.id &&
@@ -5599,6 +5616,80 @@ function guardarDetalleReferido(refId) {
       else toast("⚠️ " + ((r && r.error) || "Error al guardar"), "error");
     })
     .catch(e => toast("⚠️ " + (e.message || e), "error"));
+}
+
+// ───── FASE 4 · Precio de mercado (NeoAuto) ─────
+
+// Botón del formulario del asesor: lee marca/modelo/año/km del propio form
+function consultarMercadoDesdeForm(btn) {
+  const form = btn.closest("form");
+  if (!form) return;
+  const marca  = form.querySelector('[name="Marca"]')?.value || "";
+  const modelo = form.querySelector('[name="Modelo"]')?.value || "";
+  const anio   = Number(form.querySelector('[name="Anio"]')?.value) || 0;
+  const km     = Number(form.querySelector('[name="KM"]')?.value) || 0;
+  if (!marca || !modelo || !anio) {
+    toast("⚠️ Completa marca, modelo y año antes de consultar", "error");
+    return;
+  }
+  consultarMercadoUI(btn, marca, modelo, anio, km, "mercadoResForm");
+}
+
+// Consulta al backend y pinta la tarjeta en el contenedor indicado
+function consultarMercadoUI(btn, marca, modelo, anio, km, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  const txtOriginal = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "🔍 Consultando…"; }
+  el.innerHTML = `<div class="spinner mx-auto my-3" style="width:20px;height:20px;"></div>`;
+  gsCall("consultarMercado", { marca, modelo, anio, km })
+    .then(r => { el.innerHTML = _mercadoCardHTML(r, km); })
+    .catch(e => { el.innerHTML = `<div class="text-[11px] mt-1" style="color:#f87171">⚠️ ${escAttr(e.message || e)}</div>`; })
+    .finally(() => { if (btn) { btn.disabled = false; btn.textContent = txtOriginal; } });
+}
+
+// Tarjeta de resultados (compacta, funciona bien en móvil)
+function _mercadoCardHTML(r, kmConsultado) {
+  if (!r) return `<div class="text-[11px]" style="color:#f87171">⚠️ Sin respuesta del servidor</div>`;
+  if (r.exito === false) return `<div class="text-[11px]" style="color:#f87171">⚠️ ${escAttr(r.error || "Error")}</div>`;
+  if (r.sin_datos) return `<div class="text-[11px] text-slate-400 mt-1">ℹ️ ${escAttr(r.mensaje || "Sin datos de mercado para este vehículo.")}</div>`;
+
+  const compsHTML = (r.comparables || []).map(c => `
+    <a href="${escAttr(c.url)}" target="_blank" rel="noopener"
+       class="flex justify-between gap-2 text-[11px] py-1 border-b border-slate-800/40 text-slate-300 hover:text-violet-300">
+      <span class="text-slate-500">${c.anio}${c.km ? " · " + Number(c.km).toLocaleString("en-US") + " km" : ""}</span>
+      <span class="font-bold whitespace-nowrap">${money(c.precio)} ↗</span>
+    </a>`).join("");
+
+  return `
+    <div class="mt-2 text-[11px]">
+      <div class="grid grid-cols-3 gap-1 text-center mb-2">
+        <div class="rounded-lg py-1.5" style="background:rgba(255,255,255,.03)">
+          <div class="text-slate-500 text-[10px]">Mínimo</div>
+          <div class="font-bold text-slate-300">${money(r.minimo)}</div>
+        </div>
+        <div class="rounded-lg py-1.5" style="background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3)">
+          <div class="text-[10px]" style="color:#a78bfa">Mediana</div>
+          <div class="font-bold" style="color:#c4b5fd">${money(r.mediana)}</div>
+        </div>
+        <div class="rounded-lg py-1.5" style="background:rgba(255,255,255,.03)">
+          <div class="text-slate-500 text-[10px]">Máximo</div>
+          <div class="font-bold text-slate-300">${money(r.maximo)}</div>
+        </div>
+      </div>
+      <div class="rounded-lg p-2 mb-2 flex items-center justify-between" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3)">
+        <span style="color:#34d399">💡 Precio sugerido${kmConsultado > 0 && r.km_promedio > 0 ? " (ajustado por km)" : ""}</span>
+        <b class="text-sm" style="color:#34d399">${money(r.precio_sugerido)}</b>
+      </div>
+      <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500 mb-1.5">
+        <span>📊 ${r.cantidad} anuncio(s) comparable(s)</span>
+        ${r.rango_ampliado ? `<span style="color:#fbbf24">⚠️ rango ampliado a ±2 años</span>` : ""}
+        ${r.km_promedio ? `<span>km prom. del grupo: ${Number(r.km_promedio).toLocaleString("en-US")}</span>` : ""}
+        ${r.antiguedad_datos ? `<span>datos al ${escAttr(r.antiguedad_datos)}</span>` : ""}
+      </div>
+      ${compsHTML ? `<div class="text-[10px] text-slate-500 mb-0.5">Anuncios más comparables (NeoAuto):</div>${compsHTML}` : ""}
+      <p class="text-[9px] text-slate-600 mt-1.5">Referencial: precios de venta publicados (no de compra). Fuente: anuncios públicos de NeoAuto.</p>
+    </div>`;
 }
 
 // ───── ADMIN · Usuarios de la Red ─────
