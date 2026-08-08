@@ -328,7 +328,7 @@
       <div id="alertBadge" class="hidden rounded-full px-2.5 py-1 text-xs font-bold cursor-pointer" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#f87171;"></div>
       <!-- Acciones secundarias agrupadas en un cluster -->
       <div class="flex items-center rounded-lg ml-1" style="background:rgba(255,255,255,.025);border:1px solid var(--c-border);">
-        <button onclick="abrirCambiarPin()" id="btnCambiarPin" class="hidden text-slate-400 hover:text-amber-400 text-xs px-2.5 py-1.5 transition-colors" title="Cambiar mi PIN">🔑</button>
+        <button onclick="abrirCambiarPin()" id="btnCambiarPin" class="hidden text-slate-400 hover:text-amber-400 text-xs px-2.5 py-1.5 transition-colors" title="Cambiar mi contraseña">🔑</button>
         <button onclick="sincronizar()" id="btnSync" class="text-slate-400 hover:text-sky-400 text-xs px-2.5 py-1.5 transition-colors" title="Recargar desde Google Sheets">🔄</button>
         <button onclick="cerrarSesion()" class="text-slate-400 hover:text-red-400 text-xs px-2.5 py-1.5 transition-colors" title="Cerrar sesión">🚪</button>
       </div>
@@ -6583,24 +6583,24 @@ function abrirCambiarPin() {
     toast("⚠️ Esta función requiere auth con backend", "error");
     return;
   }
-  modal("🔑 Cambiar PIN", `
+  modal("🔑 Cambiar mi contraseña", `
     <form id="cambiarPinForm" onsubmit="event.preventDefault();confirmarCambiarPin()">
       <div class="mb-3">
-        <label>PIN actual</label>
-        <input type="password" id="pinActualInput" autocomplete="current-password" placeholder="••••" maxlength="32" autofocus>
+        <label>Contraseña actual</label>
+        <input type="password" id="pinActualInput" autocomplete="current-password" placeholder="••••••••" maxlength="64" autofocus>
       </div>
       <div class="mb-3">
-        <label>PIN nuevo (mín. 4 caracteres)</label>
-        <input type="password" id="pinNuevoInput" autocomplete="new-password" placeholder="••••" maxlength="32">
+        <label>Contraseña nueva (mín. 8 caracteres)</label>
+        <input type="password" id="pinNuevoInput" autocomplete="new-password" placeholder="••••••••" maxlength="64">
       </div>
       <div class="mb-3">
-        <label>Confirmar PIN nuevo</label>
-        <input type="password" id="pinConfirmInput" autocomplete="new-password" placeholder="••••" maxlength="32">
+        <label>Confirmar contraseña nueva</label>
+        <input type="password" id="pinConfirmInput" autocomplete="new-password" placeholder="••••••••" maxlength="64">
       </div>
       <div id="cambiarPinError" class="hidden text-red-400 text-xs mb-2"></div>
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="closeModal()" class="border border-slate-700 text-slate-400 rounded px-4 py-2 text-sm">Cancelar</button>
-        <button type="submit" id="btnConfirmarPin" class="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-2 text-sm font-semibold">Cambiar PIN</button>
+        <button type="submit" id="btnConfirmarPin" class="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-2 text-sm font-semibold">Cambiar contraseña</button>
       </div>
     </form>
   `);
@@ -6612,25 +6612,26 @@ function confirmarCambiarPin() {
   const pinConfirm = document.getElementById("pinConfirmInput").value;
   const errEl      = document.getElementById("cambiarPinError");
 
-  if (pinNuevo.length < 4) {
-    errEl.textContent = "El PIN nuevo debe tener al menos 4 caracteres";
+  if (pinNuevo.length < 8) {
+    errEl.textContent = "La contraseña nueva debe tener al menos 8 caracteres";
     errEl.classList.remove("hidden");
     return;
   }
   if (pinNuevo !== pinConfirm) {
-    errEl.textContent = "Los PINs nuevos no coinciden";
+    errEl.textContent = "Las contraseñas nuevas no coinciden";
     errEl.classList.remove("hidden");
     return;
   }
 
   const btn = document.getElementById("btnConfirmarPin");
+  const restaurar = () => { if (btn) { btn.disabled = false; btn.textContent = "Cambiar contraseña"; } };
   if (btn) { btn.disabled = true; btn.textContent = "Cambiando..."; }
 
   google.script.run
     .withSuccessHandler(r => {
-      if (btn) { btn.disabled = false; btn.textContent = "Cambiar PIN"; }
+      restaurar();
       if (r && r.exito) {
-        toast("✅ PIN actualizado · usa el nuevo en próximo login", "success");
+        toast("✅ Contraseña actualizada · úsala en el próximo ingreso", "success");
         closeModal();
       } else {
         errEl.textContent = "⚠️ " + (r ? r.error : 'Error desconocido');
@@ -6638,11 +6639,13 @@ function confirmarCambiarPin() {
       }
     })
     .withFailureHandler(e => {
-      if (btn) { btn.disabled = false; btn.textContent = "Cambiar PIN"; }
+      restaurar();
       errEl.textContent = "⚠️ " + (e.message || e);
       errEl.classList.remove("hidden");
     })
-    .cambiarPin({ token: sessionToken, pinActual, pinNuevo });
+    // Auth segura: valida contra la contraseña (Pass_Hash), no contra el PIN.
+    // Los PIN ya no existen, por eso `cambiarPin` siempre fallaba aquí.
+    .cambiarPassword({ _token: sessionToken, passwordActual: pinActual, passwordNueva: pinNuevo });
 }
 
 document.querySelectorAll(".tab-btn").forEach(b=>{
