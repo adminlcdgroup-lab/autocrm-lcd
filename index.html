@@ -744,7 +744,7 @@
      Detecta entorno y usa fetch() si no estamos en Apps Script.
      ============================================================ -->
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzIqgtsSHQJSlfcH7WXbvWrYaF2uy7dW9zwTJaDl6RyVsJwDpy2hmMafdbg-UzStDDb/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxJsDjhqF1P1vcWst_wtGsCP5P1VFHDXYZCKcTUATiNCEWgsVKSutdSjVhrLUssnKxW/exec';
 
 // Versión del backend que este HTML necesita. Si el deployment de Apps Script
 // tiene otra versión (o es tan viejo que no responde), la app muestra un banner
@@ -791,6 +791,8 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
     'misNotificaciones':                  { action: 'misNotificaciones' },
     'marcarNotifLeida':                   { action: 'marcarNotifLeida' },
     'crearUsuarioRed':                    { action: 'crearUsuarioRed' },
+    'crearUsuarioApp':                    { action: 'crearUsuarioApp' },
+    'resetearPasswordApp':                { action: 'resetearPasswordApp' },
     'listarUsuariosRed':                  { action: 'listarUsuariosRed' },
     'desactivarUsuario':                  { action: 'desactivarUsuario' },
     // Fase 3 · Nómina + Facturación + RENIEC (todas POST → token + rol)
@@ -5708,11 +5710,14 @@ function _mercadoCardHTML(r, kmConsultado) {
 function abrirUsuariosRed() {
   modal("👥 Usuarios de la Red", `
     <div id="usuariosLista" class="mb-4 text-xs text-slate-500"><div class="spinner mx-auto my-3" style="width:22px;height:22px;"></div></div>
+    <div id="avisoPassword"></div>
     <div class="border-t border-slate-800 pt-3">
       <h4 class="text-xs font-bold text-slate-300 mb-2">➕ Crear usuario</h4>
       <form onsubmit="event.preventDefault();crearUsuarioUI(this)">
         <div class="grid grid-cols-2 gap-3 mb-3">
-          <div><label>Nombre *</label><input name="nombre" required placeholder="Juan Pérez"></div>
+          <div><label>Nombre *</label><input name="nombre" required placeholder="Juan Pérez" oninput="sugerirUsuario(this)"></div>
+          <div><label>Usuario * (para entrar)</label><input name="usuario" required minlength="3" placeholder="juan.perez"
+            autocapitalize="none" spellcheck="false" style="text-transform:lowercase"></div>
           <div><label>Rol *</label><select name="rol">
             <option value="asesor">🤝 Asesor (concesionario)</option>
             <option value="revendedor">💰 Revendedor</option>
@@ -5720,15 +5725,58 @@ function abrirUsuariosRed() {
             <option value="contador">🧾 Contador</option>
             <option value="tecnico">🔧 Técnico</option>
             <option value="admin">👑 Admin</option></select></div>
-          <div><label>PIN * (mín. 4, único)</label><input name="pin" required minlength="4" placeholder="PIN de acceso"></div>
+          <div><label>Contraseña</label><input name="password" placeholder="Se genera sola si lo dejas vacío"></div>
           <div><label>Email (para avisos)</label><input name="email" type="email" placeholder="correo@gmail.com"></div>
           <div><label>Concesionario</label><input name="concesionario" placeholder="Solo asesores"></div>
-          <div><label>Teléfono</label><input name="telefono" placeholder="999 888 777"></div>
+          <div class="col-span-2"><label>Teléfono</label><input name="telefono" placeholder="999 888 777"></div>
         </div>
         <div class="flex justify-end"><button type="submit" class="bg-sky-600 hover:bg-sky-500 text-white rounded px-4 py-2 text-sm font-semibold">Crear usuario</button></div>
       </form>
+      <p class="text-[10px] text-slate-600 mt-2">
+        Si dejas la contraseña vacía, el sistema genera una temporal y te la muestra para
+        que se la pases por WhatsApp. El usuario la cambia al entrar con el botón 🔑.
+      </p>
     </div>`);
   cargarUsuariosRed();
+}
+
+// Propone un nombre de usuario a partir del nombre completo ("Juan Pérez" →
+// "juan.perez"). Solo mientras el admin no lo haya escrito a mano.
+function sugerirUsuario(inputNombre) {
+  const form = inputNombre.closest("form");
+  const campo = form?.querySelector('[name="usuario"]');
+  if (!campo || campo.dataset.editado === "1") return;
+  campo.value = (inputNombre.value || "").toLowerCase().trim()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")   // quita tildes
+    .replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "");
+  if (!campo._listo) {   // si el admin lo toca, dejamos de sobrescribirlo
+    campo.addEventListener("input", () => { campo.dataset.editado = "1"; });
+    campo._listo = true;
+  }
+}
+
+// Muestra la contraseña temporal con botón de copiar (se ve UNA sola vez)
+function mostrarPasswordTemporal(usuario, password) {
+  const el = document.getElementById("avisoPassword");
+  if (!el) return;
+  el.innerHTML = `
+    <div class="rounded-lg p-3 mb-3" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35)">
+      <div class="text-[11px] mb-1.5" style="color:#6ee7b7">
+        ✅ Usuario <b>${escAttr(usuario)}</b> listo. Pásale estos datos por WhatsApp:
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <code class="text-sm font-bold px-2 py-1 rounded" style="background:rgba(0,0,0,.35);color:#a7f3d0">${escAttr(password)}</code>
+        <button onclick="copiarTexto('Usuario: ${escAttr(usuario)}\\nContraseña: ${escAttr(password)}')"
+          class="text-[11px] font-bold rounded px-2.5 py-1 text-emerald-400 border border-emerald-900/60 hover:bg-emerald-950/40">📋 Copiar</button>
+      </div>
+      <div class="text-[10px] text-slate-500 mt-1.5">⚠️ Anótala ahora: por seguridad no se puede volver a ver.</div>
+    </div>`;
+}
+
+function copiarTexto(txt) {
+  navigator.clipboard?.writeText(txt)
+    .then(() => toast("📋 Copiado"))
+    .catch(() => toast("⚠️ No se pudo copiar, anótala a mano", "error"));
 }
 
 function cargarUsuariosRed() {
@@ -5738,12 +5786,23 @@ function cargarUsuariosRed() {
       if (!el) return;
       if (!r || r.exito === false) { el.innerHTML = `⚠️ ${escAttr((r && r.error) || "Error")}`; return; }
       el.innerHTML = (r.usuarios || []).map(u => `
-        <div class="flex items-center justify-between gap-2 py-1.5 border-b border-slate-800/60">
-          <div><b style="color:${escAttr(u.color || "#e2e8f0")}">${ICONO_ROL[u.rol] || "👤"} ${escAttr(u.nombre)}</b>
-            <span class="text-slate-500 ml-1">${escAttr(u.rol)}${u.concesionario ? " · " + escAttr(u.concesionario) : ""}${u.email ? " · " + escAttr(u.email) : ""}</span></div>
-          <button onclick="toggleUsuarioUI('${escAttr(u.id)}',${u.activo ? "false" : "true"})"
-            class="text-[11px] font-bold rounded px-2.5 py-1 ${u.activo ? "text-red-400 border border-red-900/60 hover:bg-red-950/40" : "text-emerald-400 border border-emerald-900/60 hover:bg-emerald-950/40"}">
-            ${u.activo ? "Desactivar" : "Activar"}</button>
+        <div class="flex items-center justify-between gap-2 py-1.5 border-b border-slate-800/60 flex-wrap">
+          <div class="min-w-0">
+            <b style="color:${escAttr(u.color || "#e2e8f0")}">${ICONO_ROL[u.rol] || "👤"} ${escAttr(u.nombre)}</b>
+            ${u.bloqueado ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(248,113,113,.15);color:#fca5a5">🔒 BLOQUEADO</span>` : ""}
+            ${!u.tienePassword ? `<span class="text-[10px] px-1.5 py-0.5 rounded ml-1" style="background:rgba(251,191,36,.12);color:#fcd34d">sin contraseña</span>` : ""}
+            <div class="text-slate-500 text-[11px]">
+              ${u.usuario ? `<span class="text-slate-400">${escAttr(u.usuario)}</span> · ` : ""}${escAttr(u.rol)}${u.concesionario ? " · " + escAttr(u.concesionario) : ""}${u.email ? " · " + escAttr(u.email) : ""}
+            </div>
+          </div>
+          <div class="flex gap-1.5 shrink-0">
+            ${u.usuario ? `<button onclick="resetearPasswordUI('${escAttr(u.usuario)}','${escAttr(u.nombre)}')"
+              class="text-[11px] font-bold rounded px-2.5 py-1 text-sky-400 border border-sky-900/60 hover:bg-sky-950/40"
+              title="${u.bloqueado ? "Genera una contraseña nueva y desbloquea la cuenta" : "Genera una contraseña nueva"}">🔑 ${u.bloqueado ? "Desbloquear" : "Resetear"}</button>` : ""}
+            <button onclick="toggleUsuarioUI('${escAttr(u.id)}',${u.activo ? "false" : "true"})"
+              class="text-[11px] font-bold rounded px-2.5 py-1 ${u.activo ? "text-red-400 border border-red-900/60 hover:bg-red-950/40" : "text-emerald-400 border border-emerald-900/60 hover:bg-emerald-950/40"}">
+              ${u.activo ? "Desactivar" : "Activar"}</button>
+          </div>
         </div>`).join("") || '<span class="text-slate-600">Sin usuarios.</span>';
     })
     .catch(e => { const el = document.getElementById("usuariosLista"); if (el) el.innerHTML = `⚠️ ${escAttr(e.message || e)}`; });
@@ -5752,12 +5811,44 @@ function cargarUsuariosRed() {
 function crearUsuarioUI(form) {
   const data = {};
   new FormData(form).forEach((v, k) => data[k] = v);
-  gsCall("crearUsuarioRed", data)
+  data.usuario = String(data.usuario || "").toLowerCase().trim();
+
+  const btn = form.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Creando…"; }
+  const restaurar = () => { if (btn) { btn.disabled = false; btn.textContent = "Crear usuario"; } };
+
+  gsCall("crearUsuarioApp", data)
     .then(r => {
-      if (r && r.exito) { toast(r.mensaje); form.reset(); cargarUsuariosRed(); }
-      else toast("⚠️ " + ((r && r.error) || "Error"), "error");
+      restaurar();
+      if (r && r.exito) {
+        toast("✅ Usuario creado");
+        mostrarPasswordTemporal(r.usuario, r.passwordTemporal);
+        form.reset();
+        const campo = form.querySelector('[name="usuario"]');
+        if (campo) delete campo.dataset.editado;   // vuelve a sugerir en el siguiente
+        cargarUsuariosRed();
+      } else toast("⚠️ " + ((r && r.error) || "Error"), "error");
     })
-    .catch(e => toast("⚠️ " + (e.message || e), "error"));
+    .catch(e => { restaurar(); toast("⚠️ " + (e.message || e), "error"); });
+}
+
+function resetearPasswordUI(usuario, nombre) {
+  confirmAccion({
+    title: "Resetear contraseña",
+    message: `Se generará una contraseña nueva para ${nombre} (${usuario}) y se desbloqueará su cuenta si estaba bloqueada. La contraseña anterior dejará de funcionar. ¿Continuar?`,
+    confirmText: "🔑 Generar nueva", icon: "🔑"
+  }).then(ok => {
+    if (!ok) return;
+    gsCall("resetearPasswordApp", { usuario: usuario })
+      .then(r => {
+        if (r && r.exito) {
+          toast("✅ Contraseña reseteada");
+          mostrarPasswordTemporal(r.usuario, r.passwordTemporal);
+          cargarUsuariosRed();
+        } else toast("⚠️ " + ((r && r.error) || "Error"), "error");
+      })
+      .catch(e => toast("⚠️ " + (e.message || e), "error"));
+  });
 }
 
 function toggleUsuarioUI(id, activo) {
