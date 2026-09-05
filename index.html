@@ -4834,21 +4834,78 @@ function exitoInspeccion(result) {
   const btn = document.getElementById("btnGuardarInsp");
   if(btn) { btn.disabled = false; btn.innerHTML = "💾 Guardar Inspección y Generar PDF"; }
 
-  const esError = typeof result === "string" && result.toLowerCase().includes("error");
+  // El backend responde un objeto {exito:false, error:"..."} cuando algo falla.
+  // Antes solo se miraba si era texto, así que un fallo real terminaba
+  // mostrando "✅ Informe Generado" y el técnico se iba creyendo que salió.
+  const fallo = (result && result.exito === false)
+    || (typeof result === "string" && result.toLowerCase().includes("error"));
 
-  if(esError) {
-    toast("⚠️ " + result, "error");
+  if (fallo) {
+    const msg = (result && result.error) || result || "No se pudo generar el informe";
+    toast("⚠️ " + msg, "error");
+    modal("⚠️ No se generó el informe", `
+      <div class="py-3">
+        <p class="text-slate-300 text-sm mb-2">La inspección <b>no</b> quedó registrada.</p>
+        <p class="text-slate-400 text-xs mb-4" style="word-break:break-word">${escHtml(String(msg))}</p>
+        <p class="text-slate-500 text-xs mb-4">Tus datos siguen en el formulario: puedes reintentar sin volver a llenarlo.</p>
+        <button onclick="closeModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-6 py-3 text-sm font-bold">Volver al formulario</button>
+      </div>
+    `);
     return;
   }
 
   toast(typeof result === "string" ? result : "✅ Inspección guardada", "success");
 
+  const pdf    = (result && result.pdfUrl) || "";
+  const fotos  = (result && result.linkFotos) || "";
+  const vence  = (result && result.fechaVencFotos) || "";
+  const errFot = (result && result.fotosError) || "";
+  const idInsp = (result && result.idInspeccion) || "";
+  const placa  = (result && result.placa) || "";
+
+  const textoWA = encodeURIComponent(
+    `Informe de inspección ${placa ? placa + " " : ""}(${idInsp}) — LCD Group:\n${pdf}`
+  );
+
   modal("✅ Informe Generado", `
-    <div class="text-center py-4">
-      <div class="text-5xl mb-3">📄</div>
-      <p class="text-slate-300 text-sm mb-2">El informe se guardó correctamente.</p>
-      <p class="text-slate-500 text-xs mb-5">Revisa tu carpeta de Google Drive para descargar el PDF.</p>
-      <button onclick="closeModal();_doLimpiarInspeccion()" class="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-6 py-3 text-sm font-bold">📋 Nueva inspección</button>
+    <div class="py-2">
+      <div class="text-center mb-4">
+        <div class="text-5xl mb-2">📄</div>
+        <p class="text-slate-300 text-sm">Informe <b>${escHtml(idInsp)}</b> generado y listo para enviar.</p>
+      </div>
+
+      ${pdf ? `
+        <div class="rounded-lg p-3 mb-3" style="background:var(--c-surface-2);border:1px solid var(--c-border)">
+          <div class="text-[11px] text-slate-500 uppercase tracking-wide mb-2">Informe PDF</div>
+          <div class="flex flex-col gap-2">
+            <a href="${escHtml(pdf)}" target="_blank" rel="noopener"
+               class="block text-center bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-3 text-sm font-bold">📄 Abrir el PDF</a>
+            <div class="flex gap-2">
+              <button onclick="copiarTexto('${escAttr(pdf)}')"
+                      class="flex-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-3 py-2.5 text-xs font-bold">🔗 Copiar enlace</button>
+              <a href="https://wa.me/?text=${textoWA}" target="_blank" rel="noopener"
+                 class="flex-1 text-center bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-2.5 text-xs font-bold">💬 WhatsApp</a>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-500 mt-2">Cualquiera con el enlace puede verlo. No lo publiques donde no corresponda.</p>
+        </div>` : ""}
+
+      ${fotos ? `
+        <div class="rounded-lg p-3 mb-3" style="background:var(--c-surface-2);border:1px solid var(--c-border)">
+          <div class="text-[11px] text-slate-500 uppercase tracking-wide mb-2">Fotos en Drive</div>
+          <a href="${escHtml(fotos)}" target="_blank" rel="noopener"
+             class="block text-center bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-4 py-2.5 text-xs font-bold">📁 Abrir carpeta de fotos</a>
+          ${vence ? `<p class="text-[10px] text-amber-400/80 mt-2">⏳ El enlace deja de funcionar el ${escHtml(vence)}. Las fotos quedan dentro del PDF para siempre.</p>` : ""}
+        </div>` : ""}
+
+      ${errFot ? `
+        <div class="rounded-lg p-3 mb-3" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35)">
+          <p class="text-amber-300 text-xs font-bold mb-1">⚠️ Las fotos no se subieron a Drive</p>
+          <p class="text-amber-200/80 text-[11px]">Sí quedaron dentro del PDF. Detalle: ${escHtml(String(errFot))}</p>
+        </div>` : ""}
+
+      <button onclick="closeModal();_doLimpiarInspeccion()"
+              class="w-full bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-6 py-3 text-sm font-bold">📋 Nueva inspección</button>
     </div>
   `);
 }
