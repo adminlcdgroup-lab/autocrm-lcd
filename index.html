@@ -62,6 +62,57 @@
     border-bottom: none !important;
   }
 
+  /* ───────── Celular ─────────
+     En escritorio la barra se queda igual: .tabs-scroll usa `display:contents`,
+     así que los botones siguen siendo hijos directos del flex del navbar.
+     En pantallas chicas se convierte en UNA fila que se desliza con el dedo.
+     Antes las 11 pestañas se apilaban en 7 filas: ~540 px de los 812 de un
+     teléfono se iban en el menú antes de mostrar nada. */
+  .tabs-scroll { display: contents; }
+
+  @media (max-width: 767px) {
+    .navbar-row { gap: 0 !important; padding-left: 10px !important; padding-right: 10px !important; }
+
+    .tabs-scroll {
+      display: flex;
+      flex: 0 0 100%;          /* fila propia, debajo del logo */
+      order: 3;
+      overflow-x: auto;
+      overflow-y: hidden;
+      gap: 2px;
+      padding-bottom: 4px;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      overscroll-behavior-x: contain;
+    }
+    .tabs-scroll::-webkit-scrollbar { display: none; }
+    .tabs-scroll .tab-btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      scroll-snap-align: center;
+      margin: 0;
+      padding: 9px 13px !important;   /* dedo, no puntero */
+      min-height: 40px;
+    }
+
+    /* El logo se queda; el texto "AutoCRM / LCD Group" cede su ancho */
+    .brand-text { display: none !important; }
+    .navbar-row .brand-block { margin-right: 8px !important; padding: 8px 0 !important; }
+
+    /* Diagnóstico, no información de trabajo: estorba en la cabecera */
+    #sessionBadge { display: none !important; }
+
+    /* El logo (58px) y el grupo de la derecha caben en la misma fila si el
+       grupo adelgaza ~10px; sin esto se pasa por 8px y salta de línea,
+       gastando 44px de alto en todas las pantallas. */
+    .navbar-row > .ml-auto { gap: 4px !important; }
+    #tcBadge   { font-size: 10px !important; padding: 3px 7px !important; }
+    #userBadge { font-size: 10px !important; padding: 3px 9px !important; }
+
+    .app-main { padding: 14px 12px !important; }
+  }
+
   /* ───────── Forms ───────── */
   input, select, textarea {
     background: var(--c-surface-3);
@@ -281,9 +332,9 @@
 
 <!-- NAV -->
 <div class="sticky top-0 z-50" style="background:rgba(11,18,32,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--c-border);">
-  <div class="max-w-7xl mx-auto px-5 flex items-center gap-1 flex-wrap">
+  <div class="navbar-row max-w-7xl mx-auto px-5 flex items-center gap-1 flex-wrap">
     <!-- LOGO LCD GROUP en navbar -->
-    <div class="flex items-center gap-2.5 mr-5 py-3 whitespace-nowrap">
+    <div class="brand-block flex items-center gap-2.5 mr-5 py-3 whitespace-nowrap">
       <div class="bg-white rounded-lg px-2 py-1 shadow-md">
         <img src="https://drive.google.com/thumbnail?id=19FylJ0QVp0DwCqmMVgrjKcBP-VkRE0Jc&sz=w200" alt="LCD" class="h-7" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div style="display:none" class="items-center gap-0.5">
@@ -291,11 +342,12 @@
           <span class="text-sm text-green-500 font-bold">↗</span>
         </div>
       </div>
-      <div class="flex flex-col leading-tight">
+      <div class="brand-text flex flex-col leading-tight">
         <span class="font-extrabold text-sky-400 text-sm tracking-tight">AutoCRM</span>
         <span class="text-[9px] text-slate-500 font-medium uppercase tracking-wider">LCD Group</span>
       </div>
     </div>
+    <div class="tabs-scroll">
     <button class="tab-btn active text-[13px] font-semibold text-slate-400" data-tab="dashboard" data-role="admin">📊 Dashboard</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="inventario" data-role="admin">🚗 Stock</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="crm" data-role="admin">🛒 Compradores</button>
@@ -308,6 +360,7 @@
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="nomina" data-role="nomina">🧾 Nómina</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="flyer" data-role="admin">🎨 Flyer</button>
     <button class="tab-btn text-[13px] font-semibold text-slate-400" data-tab="auditoria" data-role="admin">📜 Auditoría</button>
+    </div><!-- /tabs-scroll -->
     <div class="ml-auto flex items-center gap-1.5">
       <!-- Campana de notificaciones (Fase 2 · Red) -->
       <div class="relative">
@@ -336,7 +389,7 @@
   </div>
 </div>
 
-<div class="max-w-7xl mx-auto p-5">
+<div class="app-main max-w-7xl mx-auto p-5">
   <div id="content"></div>
 </div>
 
@@ -2101,6 +2154,7 @@ function render() {
   document.querySelectorAll(".tab-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.tab === currentTab);
   });
+  if (typeof centrarTabActiva === "function") centrarTabActiva();
 
   const alertasSOAT = vehs.filter(v=>v.soat && diffDays(today(),v.soat)>=0 && diffDays(today(),v.soat)<=30);
   const alertasRev = vehs.filter(v=>v.revTecnica && diffDays(today(),v.revTecnica)>=0 && diffDays(today(),v.revTecnica)<=30);
@@ -6743,6 +6797,42 @@ function confirmarCambiarPin() {
     // Los PIN ya no existen, por eso `cambiarPin` siempre fallaba aquí.
     .cambiarPassword({ _token: sessionToken, passwordActual: pinActual, passwordNueva: pinNuevo });
 }
+
+// ─────────── Barra de pestañas en celular ───────────
+// En pantalla chica las pestañas viven en una sola fila deslizable. Los
+// nombres largos obligarían a arrastrar de más, así que se acortan; en
+// escritorio se muestran completos.
+const TAB_CORTO = {
+  dashboard    : "📊 Panel",
+  cotizaciones : "📋 Ventas",
+  red          : "🌐 Red",
+  performance  : "💰 Margen"
+};
+
+function ajustarEtiquetasTabs() {
+  const movil = window.matchMedia("(max-width: 767px)").matches;
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    if (!b.dataset.labelLargo) b.dataset.labelLargo = b.textContent.trim();
+    const corto = TAB_CORTO[b.dataset.tab];
+    b.textContent = (movil && corto) ? corto : b.dataset.labelLargo;
+  });
+}
+
+// Deja la pestaña activa centrada. Mueve SOLO la tira horizontal —nunca la
+// página— para que al cambiar de pestaña no se pierda el scroll vertical.
+function centrarTabActiva() {
+  const tira = document.querySelector(".tabs-scroll");
+  const act  = tira && tira.querySelector(".tab-btn.active");
+  if (!tira || !act) return;
+  if (tira.scrollWidth <= tira.clientWidth + 4) return;   // en escritorio no hay nada que deslizar
+  tira.scrollTo({
+    left: Math.max(0, act.offsetLeft - (tira.clientWidth - act.offsetWidth) / 2),
+    behavior: "smooth"
+  });
+}
+
+ajustarEtiquetasTabs();
+window.addEventListener("resize", ajustarEtiquetasTabs);
 
 document.querySelectorAll(".tab-btn").forEach(b=>{
   b.addEventListener("click", ()=>{ currentTab = b.dataset.tab; render(); });
