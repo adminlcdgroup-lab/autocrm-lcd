@@ -382,6 +382,7 @@
       <!-- Acciones secundarias agrupadas en un cluster -->
       <div class="flex items-center rounded-lg ml-1" style="background:rgba(255,255,255,.025);border:1px solid var(--c-border);">
         <button onclick="abrirCambiarPin()" id="btnCambiarPin" class="hidden text-slate-400 hover:text-amber-400 text-xs px-2.5 py-1.5 transition-colors" title="Cambiar mi contraseña">🔑</button>
+        <button onclick="abrirVincularTelegram()" id="btnVincTg" class="hidden text-slate-400 hover:text-sky-400 text-xs px-2.5 py-1.5 transition-colors" title="Vincular mi cuenta de Telegram para recibir avisos">💬</button>
         <button onclick="sincronizar()" id="btnSync" class="text-slate-400 hover:text-sky-400 text-xs px-2.5 py-1.5 transition-colors" title="Recargar desde Google Sheets">🔄</button>
         <button onclick="cerrarSesion()" class="text-slate-400 hover:text-red-400 text-xs px-2.5 py-1.5 transition-colors" title="Cerrar sesión">🚪</button>
       </div>
@@ -802,7 +803,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxWAZUqGJnQ0eO
 // Versión del backend que este HTML necesita. Si el deployment de Apps Script
 // tiene otra versión (o es tan viejo que no responde), la app muestra un banner
 // rojo con las instrucciones — se acabó el misterio del "Acción no reconocida".
-const BACKEND_VERSION_ESPERADA = 'FASE3-R11';
+const BACKEND_VERSION_ESPERADA = 'FASE3-R12';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -833,6 +834,7 @@ const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-fl
     'verificarPin':                       { action: 'verificarPin' },
     'cerrarSesionBackend':                { action: 'cerrarSesionBackend' },
     'cambiarPin':                         { action: 'cambiarPin' },
+    'generarCodigoVincTelegram':          { action: 'generarCodigoVincTelegram' },
     // Fase 2 · Red de Tasaciones (todas POST → protegidas por token + rol)
     'registrarReferido':                  { action: 'registrarReferido' },
     'listarReferidos':                    { action: 'listarReferidos' },
@@ -6784,6 +6786,9 @@ function aplicarRBAC() {
   // Mostrar "Cambiar PIN" solo si tenemos token del backend (no en modo legacy)
   const btnPin = document.getElementById("btnCambiarPin");
   if (btnPin) btnPin.classList.toggle("hidden", !sessionToken);
+  // Boton Vincular Telegram: solo para roles que reciben avisos (admin y tasador)
+  const btnTg = document.getElementById("btnVincTg");
+  if (btnTg) btnTg.classList.toggle("hidden", !(sessionToken && ["admin","tasador"].includes(usuarioActual.rol)));
   // Campana de notificaciones: para todos los usuarios logueados
   document.getElementById("btnNotif")?.classList.toggle("hidden", !sessionToken);
   const badge = document.getElementById("userBadge");
@@ -6803,6 +6808,54 @@ function cerrarSesion() {
     confirmText: '🚪 Salir',
     icon: '👋'
   }).then(ok => { if (ok) cerrarSesionForzado(); });
+}
+
+// Fase 6 · Vincular Telegram — pide codigo de 6 digitos al backend, lo muestra y da
+// el link directo al bot. El usuario abre Telegram, envia el codigo, y queda vinculado.
+function abrirVincularTelegram() {
+  if (!sessionToken) { toast("⚠️ Necesitas iniciar sesión primero", "error"); return; }
+  modal("💬 Vincular Telegram", `
+    <div class="py-3 text-center">
+      <div class="text-sm text-slate-400 mb-3">Generando código…</div>
+      <div class="spinner mx-auto"></div>
+    </div>`);
+  google.script.run
+    .withFailureHandler(function(e){
+      modal("💬 Vincular Telegram", '<div class="py-3"><p class="text-red-400 text-sm">Error de conexión.</p><button onclick="closeModal()" class="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-4 py-2.5 text-sm font-bold">Cerrar</button></div>');
+    })
+    .withSuccessHandler(function(r) {
+    if (!r || !r.exito) {
+      modal("💬 Vincular Telegram", `
+        <div class="py-3">
+          <p class="text-red-400 text-sm mb-3">No pude generar el código.</p>
+          <p class="text-slate-500 text-xs mb-4">${escHtml((r && r.error) || "Error desconocido")}</p>
+          <button onclick="closeModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-4 py-2.5 text-sm font-bold">Cerrar</button>
+        </div>`);
+      return;
+    }
+    const bot = r.botUsername ? "@" + r.botUsername : "el bot";
+    const link = r.linkDirecto || "";
+    modal("💬 Vincular Telegram", `
+      <div class="py-2">
+        <p class="text-slate-300 text-sm mb-3">Tu código de vinculación (válido hasta las <b>${escHtml(r.expiraEn)}</b>):</p>
+        <div class="rounded-lg p-4 mb-4 text-center" style="background:var(--c-surface-2);border:1px solid var(--c-border)">
+          <div class="text-4xl font-black tracking-widest" style="color:#60a5fa;font-family:monospace">${escHtml(r.codigo)}</div>
+        </div>
+        <div class="rounded-lg p-3 mb-3 text-xs text-slate-400" style="background:var(--c-surface-2);border:1px solid var(--c-border)">
+          <p class="mb-2"><b class="text-slate-300">Cómo vincular:</b></p>
+          <ol class="list-decimal ml-4 space-y-1">
+            <li>Abre Telegram y busca <b class="text-slate-300">${escHtml(bot)}</b></li>
+            <li>Envíale <code class="text-sky-400">/vincular ${escHtml(r.codigo)}</code></li>
+          </ol>
+          ${link ? `<p class="mt-3"><a href="${escHtml(link)}" target="_blank" rel="noopener" class="text-sky-400 hover:underline">📱 Abrir el bot directamente</a></p>` : ""}
+        </div>
+        <div class="flex gap-2">
+          <button onclick="copiarTexto('${escAttr(r.codigo)}')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-4 py-2.5 text-sm font-bold">📋 Copiar código</button>
+          <button onclick="closeModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-4 py-2.5 text-sm font-bold">Cerrar</button>
+        </div>
+      </div>`);
+    })
+    .generarCodigoVincTelegram({});
 }
 
 // Fase 1 · Modal para cambiar PIN
