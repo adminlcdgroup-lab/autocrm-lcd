@@ -802,7 +802,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxWAZUqGJnQ0eO
 // Versión del backend que este HTML necesita. Si el deployment de Apps Script
 // tiene otra versión (o es tan viejo que no responde), la app muestra un banner
 // rojo con las instrucciones — se acabó el misterio del "Acción no reconocida".
-const BACKEND_VERSION_ESPERADA = 'FASE3-R9';
+const BACKEND_VERSION_ESPERADA = 'FASE3-R10';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -4864,6 +4864,10 @@ function exitoInspeccion(result) {
   const placa  = (result && result.placa) || "";
   // El técnico entrega la inspección; el informe lo revisa el administrador.
   const oculto = !!(result && result.informeOculto);
+  // Envío automático a la tasadora (regla: una sola tasadora recibe todos los informes).
+  const notif   = !!(result && result.notificada);
+  const notifA  = (result && result.notificadaA)  || '';
+  const notifEr = (result && result.notificadaError) || '';
 
   const textoWA = encodeURIComponent(
     `Informe de inspección ${placa ? placa + " " : ""}(${idInsp}) — LCD Group:\n${pdf}`
@@ -4894,9 +4898,18 @@ function exitoInspeccion(result) {
           <p class="text-[10px] text-slate-500 mt-2">Cualquiera con el enlace puede verlo. No lo publiques donde no corresponda.</p>
         </div>` : oculto ? `
         <div class="rounded-lg p-3 mb-3" style="background:var(--c-surface-2);border:1px solid var(--c-border)">
-          <p class="text-slate-300 text-xs font-bold mb-1">📋 El informe ya está registrado</p>
-          <p class="text-slate-400 text-[11px]">Lo revisa la administración. Avisa que terminaste esta inspección y ellos se encargan de enviarlo.</p>
-        </div>` : ""}
+          <p class="text-slate-300 text-xs font-bold mb-1">📋 Inspección registrada</p>
+          <p class="text-slate-400 text-[11px]">Ya no tienes que hacer nada más. La tasadora recibió el informe y se encarga del resto.</p>
+        </div>
+        ${notif ? `
+        <div class="rounded-lg p-3 mb-3" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35)">
+          <p class="text-emerald-300 text-xs font-bold mb-1">📧 Informe enviado a la tasadora</p>
+          <p class="text-emerald-200/80 text-[11px]">Le llegó a ${escHtml(notifA || 'la tasadora')} con el PDF adjunto.</p>
+        </div>` : notifEr ? `
+        <div class="rounded-lg p-3 mb-3" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35)">
+          <p class="text-amber-300 text-xs font-bold mb-1">⚠️ El correo automático no salió</p>
+          <p class="text-amber-200/80 text-[11px]">La inspección sí quedó guardada. Aviso a admin manualmente.</p>
+        </div>` : ""}` : ""}
 
       ${fotos ? `
         <div class="rounded-lg p-3 mb-3" style="background:var(--c-surface-2);border:1px solid var(--c-border)">
