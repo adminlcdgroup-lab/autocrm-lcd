@@ -803,7 +803,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxWAZUqGJnQ0eO
 // Versión del backend que este HTML necesita. Si el deployment de Apps Script
 // tiene otra versión (o es tan viejo que no responde), la app muestra un banner
 // rojo con las instrucciones — se acabó el misterio del "Acción no reconocida".
-const BACKEND_VERSION_ESPERADA = 'FASE3-R12';
+const BACKEND_VERSION_ESPERADA = 'FASE3-R13';
 
 // URL del endpoint de Vercel que renderiza el flyer con Chrome headless real.
 const FLYER_RENDER_URL = 'https://lcd-catalogo-publico.vercel.app/api/generar-flyer';
@@ -4326,7 +4326,6 @@ const INSPECCION_SECCIONES = [
       {k:"transmision", l:"Tipo de transmisión", t:"select", opts:["","MT","AT","CVT"]},
       {k:"vinCoincide", l:"¿VIN coincide con Tarjeta de Propiedad?", t:"select", opts:["","Sí","No","No presentó"]},
       {k:"lugar", l:"Lugar de Inspección", t:"text", full:true},
-      {k:"linkFotos", l:"Link a Carpeta de Fotos (opcional)", t:"text", full:true},
     ]
   },
   {
@@ -4395,7 +4394,9 @@ const INSPECCION_SECCIONES = [
     id: "s6", icon: "💰", titulo: "Veredicto Financiero", crucial: true,
     campos: [
       {k:"costo_reparacion", l:"Costo estimado de reparaciones ($) *", t:"number", req:true, highlight:true},
-      {k:"precio_sugerido", l:"Precio máximo sugerido de compra ($)", t:"number", highlight:true},
+      // Solo admin y tasador pueden fijar el precio final. El tecnico se limita al costo
+      // de reparaciones. Si un tecnico logueado ve el form, este campo no aparece.
+      {k:"precio_sugerido", l:"Precio máximo sugerido de compra ($)", t:"number", highlight:true, soloAdmin:true},
       {k:"recomendacion_texto", l:"Sustento técnico del veredicto", t:"textarea", full:true},
       {k:"veredicto_final", l:"¿Se recomienda la compra?", t:"select", opts:["","Sí","No","SÍ - Castigar precio"], full:true, highlight:true},
     ]
@@ -4483,10 +4484,14 @@ function renderInspeccion() {
       <p class="text-slate-500 text-sm mt-1">Peritaje de campo. Toca cada sección para expandir.</p>
     </div>`;
 
+  // Campos marcados soloAdmin no se pintan al tecnico (regla del negocio 2026-09-15)
+  const _esTecnicoInsp = usuarioActual && usuarioActual.rol === "tecnico";
+  const _camposVisibles = sec => sec.campos.filter(c => !(c.soloAdmin && _esTecnicoInsp));
   INSPECCION_SECCIONES.forEach(sec => {
     const abierta = seccionesAbiertas[sec.id];
-    const completados = sec.campos.filter(c => inspeccionData[c.k] && String(inspeccionData[c.k]).trim() !== "").length;
-    const total = sec.campos.length;
+    const campos = _camposVisibles(sec);
+    const completados = campos.filter(c => inspeccionData[c.k] && String(inspeccionData[c.k]).trim() !== "").length;
+    const total = campos.length;
     const ringClass = sec.crucial ? "ring-2 ring-amber-500/40" : "";
 
     html += `<div class="bg-slate-900 border border-slate-800 ${ringClass} rounded-xl mb-3 overflow-hidden">
@@ -4506,7 +4511,7 @@ function renderInspeccion() {
 
     if(abierta) {
       html += `<div class="px-4 pb-4 border-t border-slate-800 pt-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-3">`;
-      sec.campos.forEach(c => {
+      campos.forEach(c => {
         const val = inspeccionData[c.k] || "";
         const fullClass = c.full ? "sm:col-span-2" : "";
         const reqMark = c.req ? '<span class="text-red-400">*</span>' : '';
@@ -4552,8 +4557,8 @@ function renderInspeccion() {
 
   html += _inspFotosHTML();
 
-  const totalCampos = INSPECCION_SECCIONES.reduce((s,sec)=>s+sec.campos.length, 0);
-  const completadosTotal = INSPECCION_SECCIONES.reduce((s,sec) => s + sec.campos.filter(c=>inspeccionData[c.k]&&String(inspeccionData[c.k]).trim()!=="").length, 0);
+  const totalCampos = INSPECCION_SECCIONES.reduce((sum,sec)=>sum+_camposVisibles(sec).length, 0);
+  const completadosTotal = INSPECCION_SECCIONES.reduce((sum,sec) => sum + _camposVisibles(sec).filter(c=>inspeccionData[c.k]&&String(inspeccionData[c.k]).trim()!=="").length, 0);
   const progreso = Math.round((completadosTotal/totalCampos)*100);
 
   html += `<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4 mt-4">
@@ -4664,7 +4669,7 @@ function calcularScoreGlobal() {
 function guardarInspeccion() {
   const faltantes = [];
   INSPECCION_SECCIONES.forEach(sec => {
-    sec.campos.forEach(c => {
+    _camposVisibles(sec).forEach(c => {
       if(c.req && (!inspeccionData[c.k] || String(inspeccionData[c.k]).trim() === "")) {
         faltantes.push(c.l);
       }
@@ -4676,8 +4681,8 @@ function guardarInspeccion() {
   }
 
   // Aviso si inspección está muy incompleta (<50%)
-  const _totalCampos = INSPECCION_SECCIONES.reduce((s,sec)=>s+sec.campos.length, 0);
-  const _llenados = INSPECCION_SECCIONES.reduce((s,sec) => s + sec.campos.filter(c=>inspeccionData[c.k]&&String(inspeccionData[c.k]).trim()!=="").length, 0);
+  const _totalCampos = INSPECCION_SECCIONES.reduce((sum,sec)=>sum+_camposVisibles(sec).length, 0);
+  const _llenados = INSPECCION_SECCIONES.reduce((sum,sec) => sum + _camposVisibles(sec).filter(c=>inspeccionData[c.k]&&String(inspeccionData[c.k]).trim()!=="").length, 0);
   const _porcentaje = Math.round((_llenados/_totalCampos)*100);
   if (_porcentaje < 50) {
     confirmAccion({
@@ -4898,20 +4903,15 @@ function exitoInspeccion(result) {
             </div>
           </div>
           <p class="text-[10px] text-slate-500 mt-2">Cualquiera con el enlace puede verlo. No lo publiques donde no corresponda.</p>
-        </div>` : oculto ? `
-        <div class="rounded-lg p-3 mb-3" style="background:var(--c-surface-2);border:1px solid var(--c-border)">
-          <p class="text-slate-300 text-xs font-bold mb-1">📋 Inspección registrada</p>
-          <p class="text-slate-400 text-[11px]">Ya no tienes que hacer nada más. La tasadora recibió el informe y se encarga del resto.</p>
-        </div>
-        ${notif ? `
+        </div>` : oculto ? (notif ? `
         <div class="rounded-lg p-3 mb-3" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35)">
-          <p class="text-emerald-300 text-xs font-bold mb-1">📧 Informe enviado a la tasadora</p>
-          <p class="text-emerald-200/80 text-[11px]">Le llegó a ${escHtml(notifA || 'la tasadora')} con el PDF adjunto.</p>
-        </div>` : notifEr ? `
+          <p class="text-emerald-300 text-xs font-bold mb-1">📧 La tasadora ya recibió el informe</p>
+          <p class="text-emerald-200/80 text-[11px]">Le llegó por correo a ${escHtml(notifA || 'la tasadora')} y también le avisamos por Telegram. No tienes que hacer nada más.</p>
+        </div>` : `
         <div class="rounded-lg p-3 mb-3" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35)">
           <p class="text-amber-300 text-xs font-bold mb-1">⚠️ El correo automático no salió</p>
-          <p class="text-amber-200/80 text-[11px]">La inspección sí quedó guardada. Aviso a admin manualmente.</p>
-        </div>` : ""}` : ""}
+          <p class="text-amber-200/80 text-[11px]">La inspección sí quedó guardada y la tasadora recibió el aviso por Telegram. Admin va a enviarle el PDF por correo aparte.</p>
+        </div>`) : ""}
 
       ${fotos ? `
         <div class="rounded-lg p-3 mb-3" style="background:var(--c-surface-2);border:1px solid var(--c-border)">
