@@ -4477,16 +4477,15 @@ function _inspFotosHTML() {
   </div>`;
 }
 
+function _esTecnicoInsp() { return usuarioActual && usuarioActual.rol === "tecnico"; }
+function _camposVisibles(sec) { return sec.campos.filter(c => !(c.soloAdmin && _esTecnicoInsp())); }
+
 function renderInspeccion() {
   let html = `<div class="max-w-3xl mx-auto">
     <div class="mb-5">
       <h1 class="page-heading">📋 Inspección Técnica</h1>
       <p class="text-slate-500 text-sm mt-1">Peritaje de campo. Toca cada sección para expandir.</p>
     </div>`;
-
-  // Campos marcados soloAdmin no se pintan al tecnico (regla del negocio 2026-09-15)
-  const _esTecnicoInsp = usuarioActual && usuarioActual.rol === "tecnico";
-  const _camposVisibles = sec => sec.campos.filter(c => !(c.soloAdmin && _esTecnicoInsp));
   INSPECCION_SECCIONES.forEach(sec => {
     const abierta = seccionesAbiertas[sec.id];
     const campos = _camposVisibles(sec);
