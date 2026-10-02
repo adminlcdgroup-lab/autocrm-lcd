@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/informe", "destination": "/informe.html" },
+    { "source": "/informe/:codigo", "destination": "/informe.html" }
+  ]
+}

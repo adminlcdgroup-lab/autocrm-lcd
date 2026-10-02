@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<!-- © 2026 LCD GROUP S.A.C. Todos los derechos reservados. -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Informe de peritaje vehicular · LCD GROUP</title>
+<meta name="description" content="Informe técnico de peritaje vehicular emitido por LCD GROUP S.A.C., verificable con su código.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="copyright" content="© 2026 LCD GROUP S.A.C. Todos los derechos reservados.">
+<!-- Vista previa al pegar el enlace en WhatsApp -->
+<meta property="og:site_name" content="LCD GROUP">
+<meta property="og:title" content="Informe de peritaje vehicular · LCD GROUP">
+<meta property="og:description" content="Informe técnico emitido por LCD GROUP S.A.C. Ábrelo para ver el resultado y descargar el PDF.">
+<meta property="og:image" content="https://lcdgroup.vercel.app/logo-lcd.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="https://drive.google.com/thumbnail?id=19FylJ0QVp0DwCqmMVgrjKcBP-VkRE0Jc&sz=w64">
+<style>
+  :root { --bg: #0A0B0C; --caja: #121416; --caja2: #181B1E; --borde: #24282C; --texto: #E9EBED; --suave: #8A9096;
+          --marca: #22B14C; --marca2: #3FCB6A; --ok: #7FD99A; --aviso: #EFC06A; --mal: #E8837C; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--texto); }
+  body { font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+  .franja { height: 3px; background: linear-gradient(to right, var(--marca), var(--marca2), var(--marca)); }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; max-width: 760px; width: 100%; margin: 0 auto; }
+  .logo { background: #fff; border-radius: 8px; padding: 6px 10px; display: inline-flex; }
+  .logo img { height: 34px; display: block; }
+  .eti { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--suave); }
+  main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 8px 16px 32px; }
+  h1 { font-size: 24px; letter-spacing: -.02em; line-height: 1.2; margin: 6px 0 4px; }
+  .sub { color: var(--suave); font-size: 14px; margin: 0 0 18px; }
+  .tarjeta { background: var(--caja); border: 1px solid var(--borde); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .sello { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px;
+           background: rgba(63,203,106,.08); border: 1px solid rgba(63,203,106,.35); margin-bottom: 16px; font-size: 13.5px; }
+  .sello svg { flex: 0 0 auto; width: 20px; height: 20px; stroke: var(--ok); fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
+  .sello b { color: var(--ok); }
+  dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; margin: 0; }
+  dt { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); }
+  dd { margin: 2px 0 0; font-weight: 600; }
+  .ver { font-weight: 700; }
+  .ver.ok { color: var(--ok); } .ver.aviso { color: var(--aviso); } .ver.mal { color: var(--mal); }
+  .botones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .btn { flex: 1 1 180px; display: inline-flex; justify-content: center; align-items: center; gap: 8px; padding: 13px 16px; border-radius: 10px;
+         font-weight: 700; font-size: 14.5px; text-decoration: none; border: 1px solid transparent; cursor: pointer; }
+  .btn.pri { background: var(--marca); color: #06130A; }
+  .btn.sec { background: transparent; color: var(--texto); border-color: var(--borde); }
+  .visor { width: 100%; height: 78vh; border: 1px solid var(--borde); border-radius: 12px; background: #fff; display: none; }
+  @media (min-width: 768px) { .visor.activo { display: block; } }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--borde); background: var(--caja2); color: var(--texto);
+          font: 600 18px/1 ui-monospace, "IBM Plex Mono", Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; }
+  input:focus, .btn:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+  .error { color: var(--mal); font-weight: 700; margin: 0 0 6px; }
+  .cargando { display: flex; align-items: center; gap: 12px; color: var(--suave); }
+  .spin { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--borde); border-top-color: var(--marca2); animation: g 0.8s linear infinite; }
+  @keyframes g { to { transform: rotate(360deg); } }
+  footer { border-top: 1px solid var(--borde); color: #5E656B; font-size: 11.5px; line-height: 1.6; }
+  footer div { max-width: 760px; margin: 0 auto; padding: 16px; }
+  [hidden] { display: none !important; }
+  @media (max-width: 480px) { dl { grid-template-columns: 1fr; } h1 { font-size: 21px; } }
+</style>
+</head>
+<body>
+<div class="franja"></div>
+<header>
+  <span class="logo"><img src="/logo-lcd.png" alt="LCD GROUP"></span>
+  <span class="eti">Evaluaciones técnicas</span>
+</header>
+
+<main>
+  <h1>Informe de peritaje vehicular</h1>
+  <p class="sub" id="sub">Emitido por LCD GROUP S.A.C.</p>
+
+  <section id="vCargando" class="tarjeta" hidden><div class="cargando"><div class="spin"></div>Cargando el informe…</div></section>
+
+  <section id="vInforme" hidden>
+    <div class="tarjeta">
+      <div class="sello">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 3v6c0 5-3.5 8.5-7 11-3.5-2.5-7-6-7-11V5l7-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>
+        <div><b>Informe auténtico.</b> Fue emitido por LCD GROUP S.A.C. y su código de verificación es <b id="iCodigo"></b>.</div>
+      </div>
+      <dl>
+        <div><dt>Vehículo</dt><dd id="iVehiculo"></dd></div>
+        <div><dt>Placa</dt><dd id="iPlaca"></dd></div>
+        <div><dt>Resultado</dt><dd id="iVeredicto" class="ver"></dd></div>
+        <div><dt>Puntaje técnico</dt><dd id="iPuntaje"></dd></div>
+        <div><dt>N.° de informe</dt><dd id="iNumero"></dd></div>
+        <div><dt>Fecha de emisión</dt><dd id="iFecha"></dd></div>
+      </dl>
+      <div class="botones" id="iBotones" hidden>
+        <a class="btn pri" id="bVer" target="_blank" rel="noopener">Ver informe completo</a>
+        <a class="btn sec" id="bBajar">Descargar PDF</a>
+      </div>
+    </div>
+    <iframe class="visor" id="visor" title="Informe de peritaje en PDF"></iframe>
+  </section>
+
+  <section id="vBuscar" class="tarjeta" hidden>
+    <p class="error" id="bError" hidden></p>
+    <p style="margin:0 0 12px;color:var(--suave);font-size:14px">Escribe el código de verificación que aparece al pie de cada página del informe.</p>
+    <form id="f">
+      <input id="c" maxlength="9" placeholder="AB3D-7KQ9" autocomplete="off" spellcheck="false" aria-label="Código de verificación">
+      <button class="btn pri" type="submit" style="flex:0 0 auto">Ver informe</button>
+    </form>
+  </section>
+</main>
+
+<footer><div>
+  © 2026 LCD GROUP S.A.C. · RUC 20615420850 · Trujillo · 949 129 466 · lcdgroupsac@gmail.com<br>
+  El informe, su formato y su metodología son obra de LCD GROUP S.A.C., protegidos por el D. Leg. N.° 822 (Ley sobre el Derecho de Autor).
+  Se entrega para uso del destinatario respecto del vehículo inspeccionado; prohibida su reproducción o modificación sin autorización escrita.
+</div></footer>
+
+<script>
+  // Mismo servidor que la app (APPS_SCRIPT_URL de index.html)
+  var API = "https://script.google.com/macros/s/AKfycbwxWAZUqGJnQ0eOT0jVDTXg4T5Hrlp2s_TzY9RmcB0V47DafUj8reKTdxQhTPy9nwh1/exec";
+  var $ = function (id) { return document.getElementById(id); };
+  function normal(v) { return String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
+  function guion(v) { return v.length > 4 ? v.slice(0, 4) + "-" + v.slice(4) : v; }
+  function ver(id) { ["vCargando", "vInforme", "vBuscar"].forEach(function (x) { $(x).hidden = x !== id; }); }
+
+  function buscar(msg) {
+    ver("vBuscar");
+    $("bError").hidden = !msg;
+    $("bError").textContent = msg || "";
+    $("c").focus();
+  }
+
+  function tono(v) {
+    if (/no se recomienda|^no\b/i.test(v)) return "mal";
+    if (/castig|reparaci/i.test(v)) return "aviso";
+    return /s[ií]/i.test(v) ? "ok" : "";
+  }
+
+  function mostrar(d, codigo) {
+    $("iCodigo").textContent = guion(codigo);
+    $("iVehiculo").textContent = d.vehiculo || "—";
+    $("iPlaca").textContent = d.placa || "—";
+    $("iVeredicto").textContent = d.veredicto || "—";
+    $("iVeredicto").className = "ver " + tono(d.veredicto || "");
+    $("iPuntaje").textContent = d.puntaje ? d.puntaje + " / 100" : "—";
+    $("iNumero").textContent = d.informe || "—";
+    $("iFecha").textContent = d.fecha || "—";
+    $("sub").textContent = (d.vehiculo || "Vehículo") + (d.placa ? " · Placa " + d.placa : "");
+    document.title = "Informe " + (d.vehiculo || "") + " · LCD GROUP";
+    if (d.pdf) {
+      var bin = atob(d.pdf), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      $("bVer").href = url;
+      $("bBajar").href = url;
+      $("bBajar").download = d.nombre || "Informe LCD GROUP.pdf";
+      $("iBotones").hidden = false;
+      $("visor").src = url;
+      $("visor").classList.add("activo");
+    }
+    ver("vInforme");
+  }
+
+  function cargar(codigo) {
+    if (codigo.length !== 8) { buscar("El código tiene 8 caracteres, por ejemplo AB3D-7KQ9."); return; }
+    ver("vCargando");
+    fetch(API + "?action=informeCliente&codigo=" + encodeURIComponent(codigo))
+      .then(function (x) { return x.json(); })
+      .then(function (d) {
+        if (d && d.valido) mostrar(d, codigo);
+        else buscar((d && d.error) || "No encontramos un informe con ese código. Revisa que esté bien escrito.");
+      })
+      .catch(function () { buscar("No se pudo cargar el informe ahora. Intenta en unos minutos."); });
+  }
+
+  $("c").addEventListener("input", function () { this.value = guion(normal(this.value).slice(0, 8)); });
+  $("f").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = normal($("c").value);
+    if (v.length === 8) history.replaceState(null, "", "/informe/" + guion(v));
+    cargar(v);
+  });
+
+  // /informe/AB3D-7KQ9 (enlace que se comparte) o ?c=AB3D-7KQ9
+  var m = location.pathname.match(/\/informe\/([A-Za-z0-9-]+)\/?$/);
+  var codigo = normal(m ? m[1] : new URLSearchParams(location.search).get("c"));
+  if (codigo) { $("c").value = guion(codigo); cargar(codigo); } else buscar("");
+</script>
+</body>
+</html>
